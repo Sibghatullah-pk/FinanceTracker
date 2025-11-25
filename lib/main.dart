@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_screen.dart';
 import 'utils/app_theme.dart';
 
 void main() {
@@ -21,7 +21,7 @@ class FinanceTrackerApp extends StatelessWidget {
       title: 'Finance Tracker',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const HomeScreen(),
+      home: const MainScreen(),
     );
   }
 }

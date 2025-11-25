@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Colors
-  static const Color primaryColor = Color(0xFF6C63FF);
-  static const Color secondaryColor = Color(0xFF4ECDC4);
-  static const Color backgroundColor = Color(0xFFF8F9FA);
+  // Modern Finance App Colors
+  static const Color primaryColor = Color(0xFF7C3AED); // Purple
+  static const Color secondaryColor = Color(0xFF10B981); // Green
+  static const Color backgroundColor = Color(0xFFF9FAFB);
   static const Color cardColor = Color(0xFFFFFFFF);
-  static const Color textPrimary = Color(0xFF2D3436);
-  static const Color textSecondary = Color(0xFF636E72);
-  static const Color successColor = Color(0xFF06D6A0);
-  static const Color errorColor = Color(0xFFFF6B6B);
-  static const Color warningColor = Color(0xFFFFBE0B);
+  static const Color textPrimary = Color(0xFF111827);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color successColor = Color(0xFF10B981);
+  static const Color errorColor = Color(0xFFEF4444);
+  static const Color warningColor = Color(0xFFF59E0B);
+  static const Color incomeColor = Color(0xFF10B981);
+  static const Color expenseColor = Color(0xFFEF4444);
+  static const Color borderColor = Color(0xFFE5E7EB);
 
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
@@ -25,14 +28,13 @@ class AppTheme {
     ),
     appBarTheme: const AppBarTheme(
       elevation: 0,
-      centerTitle: true,
+      centerTitle: false,
       backgroundColor: backgroundColor,
       foregroundColor: textPrimary,
       titleTextStyle: TextStyle(
         color: textPrimary,
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-        fontFamily: 'Inter',
+        fontSize: 24,
+        fontWeight: FontWeight.bold,
       ),
     ),
     textTheme: const TextTheme(
