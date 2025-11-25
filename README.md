@@ -1,3 +1,4 @@
+
 # Finance Tracker
 
 A beautiful and intuitive Flutter finance tracker application to manage your expenses, income, and budgets.
