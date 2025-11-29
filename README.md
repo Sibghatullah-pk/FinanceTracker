@@ -161,11 +161,14 @@ households/
 - [ ] Savings goals feature
 - [ ] Dark mode theme
 - [ ] Ai for predictions
+- [ ] Goals,analysis,Summary add krna
+- [ ] Bills
 
 ## 👨‍💻 Author
 
 **Sibghatullah**
 - GitHub: [@Sibghatullah-pk](https://github.com/Sibghatullah-pk)
+
 
 ## 📄 License
 
