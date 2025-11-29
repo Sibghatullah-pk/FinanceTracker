@@ -37,14 +37,15 @@ class AppState extends ChangeNotifier {
   String _generateId() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = Random();
-    return List.generate(8, (index) => chars[random.nextInt(chars.length)]).join();
+    return List.generate(8, (index) => chars[random.nextInt(chars.length)])
+        .join();
   }
 
   // Auth Methods
   Future<bool> login(String email, String password) async {
     // Mock login - In production, use Firebase Auth
     await Future.delayed(const Duration(seconds: 1));
-    
+
     // Demo user
     _currentUser = UserModel(
       uid: 'user_${_generateId()}',
@@ -52,19 +53,20 @@ class AppState extends ChangeNotifier {
       email: email,
       householdId: null,
     );
-    
+
     notifyListeners();
     return true;
   }
 
-  Future<bool> signup(String name, String email, String password, double monthlyBudget) async {
+  Future<bool> signup(
+      String name, String email, String password, double monthlyBudget) async {
     // Mock signup
     await Future.delayed(const Duration(seconds: 1));
-    
+
     final uid = 'user_${_generateId()}';
     final householdId = 'hh_${_generateId()}';
     final inviteCode = _generateId();
-    
+
     _currentUser = UserModel(
       uid: uid,
       name: name,
@@ -82,10 +84,10 @@ class AppState extends ChangeNotifier {
     );
 
     _householdMembers[uid] = _currentUser!;
-    
+
     // Add sample transactions
     _addSampleTransactions();
-    
+
     notifyListeners();
     return true;
   }
@@ -102,7 +104,7 @@ class AppState extends ChangeNotifier {
   // Household Methods
   Future<bool> joinHousehold(String inviteCode) async {
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     // Mock joining - check if invite code matches
     if (_household != null && _household!.inviteCode == inviteCode) {
       return false; // Already in this household
@@ -111,9 +113,9 @@ class AppState extends ChangeNotifier {
     // In real app, query Firestore for household with this invite code
     // For demo, create a mock household
     final householdId = 'hh_${_generateId()}';
-    
+
     _currentUser = _currentUser!.copyWith(householdId: householdId);
-    
+
     _household = Household(
       id: householdId,
       memberIds: [_currentUser!.uid, 'member_admin'],
@@ -134,7 +136,7 @@ class AppState extends ChangeNotifier {
     );
 
     _addSampleTransactions();
-    
+
     notifyListeners();
     return true;
   }
@@ -150,7 +152,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> updateBudgetLimit(double newLimit) async {
     if (!isAdmin) return;
-    
+
     _household = _household!.copyWith(monthlyLimit: newLimit);
     notifyListeners();
   }
@@ -163,7 +165,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> deleteTransaction(String transactionId) async {
     if (!isAdmin) return;
-    
+
     _transactions.removeWhere((t) => t.id == transactionId);
     _comments.remove(transactionId);
     notifyListeners();
@@ -271,20 +273,20 @@ class AppState extends ChangeNotifier {
   // Demo login for quick testing
   Future<void> demoLogin() async {
     await signup('John', 'john@example.com', 'password', 50000);
-    
+
     // Add member to household
     _household = _household!.copyWith(
       memberIds: [..._household!.memberIds, 'member_123'],
       roles: {..._household!.roles, 'member_123': 'contributor'},
     );
-    
+
     _householdMembers['member_123'] = UserModel(
       uid: 'member_123',
       name: 'Sarah',
       email: 'sarah@example.com',
       householdId: _household!.id,
     );
-    
+
     notifyListeners();
   }
 }

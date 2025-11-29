@@ -60,7 +60,8 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
             builder: (context, appState, child) {
               if (appState.isAdmin) {
                 return IconButton(
-                  icon: const Icon(Icons.delete_outline, color: AppTheme.expenseColor),
+                  icon: const Icon(Icons.delete_outline,
+                      color: AppTheme.expenseColor),
                   onPressed: () => _showDeleteDialog(context, appState),
                 );
               }
@@ -127,7 +128,7 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
                         const SizedBox(height: 20),
                         const Divider(),
                         const SizedBox(height: 16),
-                        
+
                         // Details
                         _buildDetailRow(
                           'Category',
@@ -183,8 +184,9 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
                   // Comments List
                   Consumer<AppState>(
                     builder: (context, appState, child) {
-                      final comments = appState.getComments(widget.transaction.id);
-                      
+                      final comments =
+                          appState.getComments(widget.transaction.id);
+
                       if (comments.isEmpty) {
                         return Container(
                           padding: const EdgeInsets.all(24),
@@ -404,7 +406,8 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Transaction'),
-        content: const Text('Are you sure you want to delete this transaction?'),
+        content:
+            const Text('Are you sure you want to delete this transaction?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

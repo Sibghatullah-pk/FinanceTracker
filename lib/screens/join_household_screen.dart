@@ -136,7 +136,8 @@ class _JoinHouseholdScreenState extends State<JoinHouseholdScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                  borderSide:
+                      const BorderSide(color: AppTheme.primaryColor, width: 2),
                 ),
               ),
             ),
@@ -189,7 +190,8 @@ class _JoinHouseholdScreenState extends State<JoinHouseholdScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.info_outline, size: 20, color: AppTheme.primaryColor),
+                      Icon(Icons.info_outline,
+                          size: 20, color: AppTheme.primaryColor),
                       SizedBox(width: 8),
                       Text(
                         'What happens next?',

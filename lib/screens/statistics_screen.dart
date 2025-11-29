@@ -28,14 +28,14 @@ class StatisticsScreen extends StatelessWidget {
               totalIncome += t.amount;
             } else {
               totalExpense += t.amount;
-              categorySpending[t.category] = 
+              categorySpending[t.category] =
                   (categorySpending[t.category] ?? 0) + t.amount;
             }
           }
 
           final balance = totalIncome - totalExpense;
-          final maxCategoryAmount = categorySpending.isEmpty 
-              ? 1.0 
+          final maxCategoryAmount = categorySpending.isEmpty
+              ? 1.0
               : categorySpending.values.reduce((a, b) => a > b ? a : b);
 
           return SingleChildScrollView(
@@ -45,7 +45,8 @@ class StatisticsScreen extends StatelessWidget {
               children: [
                 // Month Selector
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
@@ -61,7 +62,8 @@ class StatisticsScreen extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      Icon(Icons.calendar_today, size: 20, color: Colors.grey[600]),
+                      Icon(Icons.calendar_today,
+                          size: 20, color: Colors.grey[600]),
                     ],
                   ),
                 ),
@@ -117,8 +119,8 @@ class StatisticsScreen extends StatelessWidget {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
                           child: LinearProgressIndicator(
-                            value: (appState.totalSpent / 
-                                appState.monthlyLimit).clamp(0.0, 1.0),
+                            value: (appState.totalSpent / appState.monthlyLimit)
+                                .clamp(0.0, 1.0),
                             minHeight: 12,
                             backgroundColor: Colors.grey[200],
                             valueColor: AlwaysStoppedAnimation<Color>(
@@ -170,16 +172,24 @@ class StatisticsScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      _buildStatRow('Income', 'Rs. ${totalIncome.toStringAsFixed(0)}', AppTheme.incomeColor),
+                      _buildStatRow(
+                          'Income',
+                          'Rs. ${totalIncome.toStringAsFixed(0)}',
+                          AppTheme.incomeColor),
                       const SizedBox(height: 12),
-                      _buildStatRow('Expense', 'Rs. ${totalExpense.toStringAsFixed(0)}', AppTheme.expenseColor),
+                      _buildStatRow(
+                          'Expense',
+                          'Rs. ${totalExpense.toStringAsFixed(0)}',
+                          AppTheme.expenseColor),
                       const SizedBox(height: 12),
                       const Divider(),
                       const SizedBox(height: 12),
                       _buildStatRow(
-                        'Balance', 
-                        'Rs. ${balance.toStringAsFixed(0)}', 
-                        balance >= 0 ? AppTheme.incomeColor : AppTheme.expenseColor,
+                        'Balance',
+                        'Rs. ${balance.toStringAsFixed(0)}',
+                        balance >= 0
+                            ? AppTheme.incomeColor
+                            : AppTheme.expenseColor,
                       ),
                     ],
                   ),
@@ -250,8 +260,18 @@ class StatisticsScreen extends StatelessWidget {
   String _getCurrentMonth() {
     final now = DateTime.now();
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
     ];
     return '${months[now.month - 1]} ${now.year}';
   }
