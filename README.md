@@ -160,6 +160,7 @@ households/
 - [ ] Monthly reports export
 - [ ] Savings goals feature
 - [ ] Dark mode theme
+- [ ] Ai for predictions
 
 ## 👨‍💻 Author
 
