@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart';
+import 'dashboard_screen.dart';
 import 'transactions_screen.dart';
 import 'statistics_screen.dart';
-import 'budget_screen.dart';
+import 'settings_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -15,10 +15,10 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
   final List<Widget> _screens = [
-    const HomeScreen(),
+    const DashboardScreen(),
     const TransactionsScreen(),
     const StatisticsScreen(),
-    const BudgetScreen(),
+    const SettingsScreen(),
   ];
 
   @override
@@ -27,6 +27,7 @@ class _MainScreenState extends State<MainScreen> {
       body: _screens[_selectedIndex],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
+          color: Colors.white,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
@@ -48,16 +49,17 @@ class _MainScreenState extends State<MainScreen> {
           selectedFontSize: 12,
           unselectedFontSize: 12,
           elevation: 0,
+          backgroundColor: Colors.white,
           items: const [
             BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Home',
+              icon: Icon(Icons.dashboard_outlined),
+              activeIcon: Icon(Icons.dashboard),
+              label: 'Dashboard',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.receipt_long_outlined),
               activeIcon: Icon(Icons.receipt_long),
-              label: 'Transactions',
+              label: 'Expenses',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.pie_chart_outline),
@@ -65,9 +67,9 @@ class _MainScreenState extends State<MainScreen> {
               label: 'Statistics',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              activeIcon: Icon(Icons.account_balance_wallet),
-              label: 'Budget',
+              icon: Icon(Icons.settings_outlined),
+              activeIcon: Icon(Icons.settings),
+              label: 'Settings',
             ),
           ],
         ),

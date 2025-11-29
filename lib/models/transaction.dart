@@ -7,8 +7,9 @@ class Transaction {
   final String category;
   final TransactionType type;
   final DateTime date;
-  final String? description;
-  final String? icon;
+  final String? note;
+  final String createdBy;
+  final String createdByName;
 
   Transaction({
     required this.id,
@@ -17,8 +18,9 @@ class Transaction {
     required this.category,
     required this.type,
     required this.date,
-    this.description,
-    this.icon,
+    this.note,
+    required this.createdBy,
+    required this.createdByName,
   });
 
   Map<String, dynamic> toJson() {
@@ -29,8 +31,9 @@ class Transaction {
       'category': category,
       'type': type.toString(),
       'date': date.toIso8601String(),
-      'description': description,
-      'icon': icon,
+      'note': note,
+      'createdBy': createdBy,
+      'createdByName': createdByName,
     };
   }
 
@@ -44,8 +47,9 @@ class Transaction {
           ? TransactionType.income
           : TransactionType.expense,
       date: DateTime.parse(json['date'] as String),
-      description: json['description'] as String?,
-      icon: json['icon'] as String?,
+      note: json['note'] as String?,
+      createdBy: json['createdBy'] as String? ?? '',
+      createdByName: json['createdByName'] as String? ?? '',
     );
   }
 }

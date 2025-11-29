@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'screens/main_screen.dart';
+import 'package:provider/provider.dart';
+import 'providers/app_state.dart';
+import 'screens/login_screen.dart';
 import 'utils/app_theme.dart';
 
 void main() {
@@ -17,11 +19,14 @@ class FinanceTrackerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Finance Tracker',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      home: const MainScreen(),
+    return ChangeNotifierProvider(
+      create: (_) => AppState(),
+      child: MaterialApp(
+        title: 'Finance Tracker',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        home: const LoginScreen(),
+      ),
     );
   }
 }
