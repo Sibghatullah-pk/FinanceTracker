@@ -81,7 +81,7 @@ flutter build apk --release
 
 If you encounter "Unsupported class file major version" errors, ensure you have:
 - Java 17 or higher installed
-- Gradle 8.13 or higher (specified in `android/gradle/wrapper/gradle-wrapper.properties`)
+- Compatible Gradle version (8.13+) specified in `android/gradle/wrapper/gradle-wrapper.properties`
 
 Check your Java version:
 ```bash
