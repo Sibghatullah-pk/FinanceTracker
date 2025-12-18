@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/app_state.dart';
-import '../models/transaction.dart';
+import '../models/transaction.dart' as app; // ✅ Use alias
 import '../utils/app_theme.dart';
 import 'expense_detail_screen.dart';
 
@@ -32,15 +33,16 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       ),
       body: Consumer<AppState>(
         builder: (context, appState, child) {
-          List<Transaction> filteredTransactions = appState.transactions;
+          // Use app.Transaction type
+          List<app.Transaction> filteredTransactions = appState.transactions;
 
           if (_selectedFilter == 'Income') {
             filteredTransactions = appState.transactions
-                .where((t) => t.type == TransactionType.income)
+                .where((t) => t.type == app.TransactionType.income)
                 .toList();
           } else if (_selectedFilter == 'Expense') {
             filteredTransactions = appState.transactions
-                .where((t) => t.type == TransactionType.expense)
+                .where((t) => t.type == app.TransactionType.expense)
                 .toList();
           }
 
@@ -64,34 +66,34 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               Expanded(
                 child: filteredTransactions.isEmpty
                     ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.receipt_long_outlined,
-                              size: 64,
-                              color: Colors.grey[300],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No transactions yet',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: filteredTransactions.length,
-                        itemBuilder: (context, index) {
-                          final transaction = filteredTransactions[index];
-                          return _buildTransactionItem(
-                              context, transaction, appState);
-                        },
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.receipt_long_outlined,
+                        size: 64,
+                        color: Colors.grey[300],
                       ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No transactions yet',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+                    : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: filteredTransactions.length,
+                  itemBuilder: (context, index) {
+                    final transaction = filteredTransactions[index];
+                    return _buildTransactionItem(
+                        context, transaction, appState);
+                  },
+                ),
               ),
             ],
           );
@@ -129,8 +131,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   }
 
   Widget _buildTransactionItem(
-      BuildContext context, Transaction transaction, AppState appState) {
-    final isExpense = transaction.type == TransactionType.expense;
+      BuildContext context, app.Transaction transaction, AppState appState) {
+    final isExpense = transaction.type == app.TransactionType.expense;
     final comments = appState.getComments(transaction.id);
 
     return Container(

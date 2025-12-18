@@ -23,7 +23,8 @@ class Transaction {
     required this.createdByName,
   });
 
-  Map<String, dynamic> toJson() {
+  /// Used when saving to Firestore
+  Map<String, dynamic> toMap() {
     return {
       'id': id,
       'title': title,
@@ -37,7 +38,8 @@ class Transaction {
     };
   }
 
-  factory Transaction.fromJson(Map<String, dynamic> json) {
+  /// Used when reading from Firestore
+  factory Transaction.fromMap(Map<String, dynamic> json) {
     return Transaction(
       id: json['id'] as String,
       title: json['title'] as String,

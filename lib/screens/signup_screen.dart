@@ -38,7 +38,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
     final appState = context.read<AppState>();
     final budget = double.tryParse(_budgetController.text) ?? 50000;
-    final success = await appState.signup(
+    final error = await appState.signup(
       _nameController.text.trim(),
       _emailController.text.trim(),
       _passwordController.text,
@@ -47,11 +47,18 @@ class _SignupScreenState extends State<SignupScreen> {
 
     setState(() => _isLoading = false);
 
-    if (success && mounted) {
+    if (error == null && mounted) {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const MainScreen()),
         (route) => false,
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Signup failed: $error'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }

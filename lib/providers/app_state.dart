@@ -1,292 +1,298 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+import '../models/transaction.dart' as app;
 import '../models/user_model.dart';
 import '../models/household.dart';
-import '../models/transaction.dart';
 import '../models/comment.dart';
-import 'dart:math';
 
 class AppState extends ChangeNotifier {
+  // 🔥 Firebase
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  // App State
   UserModel? _currentUser;
   Household? _household;
-  List<Transaction> _transactions = [];
-  Map<String, List<Comment>> _comments = {}; // transactionId: comments
-  Map<String, UserModel> _householdMembers = {};
 
-  // Getters
+  // 🔥 STRONGLY TYPED
+  final List<app.Transaction> _transactions = [];
+  final Map<String, List<Comment>> _comments = {};
+  final Map<String, UserModel> _householdMembers = {};
+
+  // ================= GETTERS =================
   UserModel? get currentUser => _currentUser;
   Household? get household => _household;
-  List<Transaction> get transactions => _transactions;
+  List<app.Transaction> get transactions => _transactions;
+
   bool get isLoggedIn => _currentUser != null;
   bool get hasHousehold => _household != null;
   bool get isAdmin => _household?.roles[_currentUser?.uid] == 'admin';
 
   double get totalSpent => _transactions
-      .where((t) => t.type == TransactionType.expense)
-      .fold(0, (sum, t) => sum + t.amount);
+      .where((t) => t.type == app.TransactionType.expense)
+      .fold(0.0, (sum, t) => sum + t.amount);
 
   double get totalIncome => _transactions
-      .where((t) => t.type == TransactionType.income)
-      .fold(0, (sum, t) => sum + t.amount);
+      .where((t) => t.type == app.TransactionType.income)
+      .fold(0.0, (sum, t) => sum + t.amount);
 
   double get monthlyLimit => _household?.monthlyLimit ?? 0;
   double get remaining => monthlyLimit - totalSpent;
 
   List<UserModel> get members => _householdMembers.values.toList();
 
-  // Generate random ID
+  // ================= HELPERS =================
   String _generateId() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = Random();
-    return List.generate(8, (index) => chars[random.nextInt(chars.length)])
-        .join();
+    return List.generate(8, (_) => chars[random.nextInt(chars.length)]).join();
   }
 
-  // Auth Methods
-  Future<bool> login(String email, String password) async {
-    // Mock login - In production, use Firebase Auth
-    await Future.delayed(const Duration(seconds: 1));
-
-    // Demo user
-    _currentUser = UserModel(
-      uid: 'user_${_generateId()}',
-      name: email.split('@')[0],
-      email: email,
-      householdId: null,
-    );
-
-    notifyListeners();
-    return true;
+  Future<void> _storeFCMToken() async {
+    if (_currentUser == null) return;
+    final token = await FirebaseMessaging.instance.getToken();
+    if (token != null) {
+      await _db.collection('users').doc(_currentUser!.uid).update({
+        'fcmToken': token,
+      });
+    }
   }
 
-  Future<bool> signup(
-      String name, String email, String password, double monthlyBudget) async {
-    // Mock signup
-    await Future.delayed(const Duration(seconds: 1));
+  Future<void> _sendNotificationToHousehold(String title, String body) async {
+    if (_household == null || _currentUser == null) return;
 
-    final uid = 'user_${_generateId()}';
-    final householdId = 'hh_${_generateId()}';
-    final inviteCode = _generateId();
+    final serverKey = 'YOUR_FCM_SERVER_KEY'; // Replace with your FCM server key from Firebase Console
 
-    _currentUser = UserModel(
-      uid: uid,
-      name: name,
-      email: email,
-      householdId: householdId,
-    );
+    for (final memberId in _household!.memberIds) {
+      if (memberId == _currentUser!.uid) continue; // Don't send to self
 
-    // Create household with user as admin
-    _household = Household(
-      id: householdId,
-      memberIds: [uid],
-      roles: {uid: 'admin'},
-      monthlyLimit: monthlyBudget,
-      inviteCode: inviteCode,
-    );
+      final memberDoc = await _db.collection('users').doc(memberId).get();
+      final token = memberDoc.data()?['fcmToken'];
+      if (token != null) {
+        final response = await http.post(
+          Uri.parse('https://fcm.googleapis.com/fcm/send'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'key=$serverKey',
+          },
+          body: jsonEncode({
+            'to': token,
+            'notification': {
+              'title': title,
+              'body': body,
+            },
+          }),
+        );
+        debugPrint('Notification sent to $memberId: ${response.statusCode}');
+      }
+    }
+  }
 
-    _householdMembers[uid] = _currentUser!;
+  // ================= AUTH =================
+  Future<String?> login(String email, String password) async {
+    try {
+      final result = await _auth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
 
-    // Add sample transactions
-    _addSampleTransactions();
+      final user = result.user!;
+      final userDoc = await _db.collection('users').doc(user.uid).get();
+      final data = userDoc.data();
+      if (data == null) throw Exception("User document not found");
 
-    notifyListeners();
-    return true;
+      _currentUser = UserModel(
+        uid: user.uid,
+        name: data['name'],
+        email: user.email!,
+        householdId: data['householdId'],
+      );
+
+      if (_currentUser!.householdId != null) {
+        await _loadHousehold(_currentUser!.householdId!);
+      }
+
+      // Store FCM token
+      await _storeFCMToken();
+
+      notifyListeners();
+      return null; // Success
+    } catch (e) {
+      debugPrint("Login error: $e");
+      return e.toString(); // Return error message
+    }
+  }
+
+  Future<String?> signup(
+      String name,
+      String email,
+      String password,
+      double monthlyBudget,
+      ) async {
+    try {
+      final result = await _auth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+
+      final user = result.user!;
+      final householdId = 'hh_${_generateId()}';
+      final inviteCode = _generateId();
+
+      await _db.collection('users').doc(user.uid).set({
+        'name': name,
+        'email': email,
+        'householdId': householdId,
+        'monthlyBudget': monthlyBudget,
+        'createdAt': Timestamp.now(),
+      });
+
+      await _db.collection('households').doc(householdId).set({
+        'memberIds': [user.uid],
+        'roles': {user.uid: 'admin'},
+        'monthlyLimit': monthlyBudget,
+        'inviteCode': inviteCode,
+      });
+
+      _currentUser = UserModel(
+        uid: user.uid,
+        name: name,
+        email: email,
+        householdId: householdId,
+      );
+
+      _household = Household(
+        id: householdId,
+        memberIds: [user.uid],
+        roles: {user.uid: 'admin'},
+        monthlyLimit: monthlyBudget,
+        inviteCode: inviteCode,
+      );
+
+      _householdMembers[user.uid] = _currentUser!;
+      notifyListeners();
+      return null; // Success
+    } catch (e) {
+      debugPrint("Signup error: $e");
+      return e.toString(); // Return error message
+    }
   }
 
   Future<void> logout() async {
+    await _auth.signOut();
     _currentUser = null;
     _household = null;
-    _transactions = [];
-    _comments = {};
-    _householdMembers = {};
+    _transactions.clear();
+    _comments.clear();
+    _householdMembers.clear();
     notifyListeners();
   }
 
-  // Household Methods
-  Future<bool> joinHousehold(String inviteCode) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    // Mock joining - check if invite code matches
-    if (_household != null && _household!.inviteCode == inviteCode) {
-      return false; // Already in this household
-    }
-
-    // In real app, query Firestore for household with this invite code
-    // For demo, create a mock household
-    final householdId = 'hh_${_generateId()}';
-
-    _currentUser = _currentUser!.copyWith(householdId: householdId);
+  // ================= HOUSEHOLD =================
+  Future<void> _loadHousehold(String householdId) async {
+    final doc = await _db.collection('households').doc(householdId).get();
+    final data = doc.data();
+    if (data == null) throw Exception("Household not found");
 
     _household = Household(
       id: householdId,
-      memberIds: [_currentUser!.uid, 'member_admin'],
-      roles: {
-        _currentUser!.uid: 'contributor',
-        'member_admin': 'admin',
-      },
-      monthlyLimit: 50000,
-      inviteCode: inviteCode,
+      memberIds: List<String>.from(data['memberIds']),
+      roles: Map<String, String>.from(data['roles']),
+      monthlyLimit: (data['monthlyLimit'] as num).toDouble(),
+      inviteCode: data['inviteCode'],
     );
+  }
 
-    _householdMembers[_currentUser!.uid] = _currentUser!;
-    _householdMembers['member_admin'] = UserModel(
-      uid: 'member_admin',
-      name: 'Admin',
-      email: 'admin@email.com',
-      householdId: householdId,
+  Future<void> updateBudgetLimit(double amount) async {
+    if (_household == null) return;
+    await _db.collection('households').doc(_household!.id).update({
+      'monthlyLimit': amount,
+    });
+    _household = Household(
+      id: _household!.id,
+      memberIds: _household!.memberIds,
+      roles: _household!.roles,
+      monthlyLimit: amount,
+      inviteCode: _household!.inviteCode,
     );
-
-    _addSampleTransactions();
-
-    notifyListeners();
-    return true;
-  }
-
-  Future<void> leaveHousehold() async {
-    _currentUser = _currentUser!.copyWith(householdId: null);
-    _household = null;
-    _transactions = [];
-    _comments = {};
-    _householdMembers = {};
     notifyListeners();
   }
 
-  Future<void> updateBudgetLimit(double newLimit) async {
-    if (!isAdmin) return;
+  Future<bool> joinHousehold(String inviteCode) async {
+    try {
+      final query = await _db
+          .collection('households')
+          .where('inviteCode', isEqualTo: inviteCode)
+          .get();
 
-    _household = _household!.copyWith(monthlyLimit: newLimit);
-    notifyListeners();
+      if (query.docs.isEmpty) return false;
+
+      final householdDoc = query.docs.first;
+      final householdId = householdDoc.id;
+
+      await _db.collection('households').doc(householdId).update({
+        'memberIds': FieldValue.arrayUnion([_currentUser!.uid]),
+        'roles.${_currentUser!.uid}': 'member',
+      });
+
+      await _db.collection('users').doc(_currentUser!.uid).update({
+        'householdId': householdId,
+      });
+
+      await _loadHousehold(householdId);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint("Join household error: $e");
+      return false;
+    }
   }
 
-  // Transaction Methods
-  Future<void> addTransaction(Transaction transaction) async {
-    _transactions.insert(0, transaction);
-    notifyListeners();
+  // ================= TRANSACTIONS =================
+  Future<void> addTransaction(app.Transaction transaction) async {
+    await _db
+        .collection('households')
+        .doc(_household!.id)
+        .collection('transactions')
+        .add(transaction.toMap());
+
+    // Send notification to other household members
+    final type = transaction.type == app.TransactionType.expense ? 'Expense' : 'Income';
+    await _sendNotificationToHousehold(
+      'New $type Added',
+      '${_currentUser!.name} added Rs. ${transaction.amount} for ${transaction.description}',
+    );
   }
 
-  Future<void> deleteTransaction(String transactionId) async {
-    if (!isAdmin) return;
-
-    _transactions.removeWhere((t) => t.id == transactionId);
-    _comments.remove(transactionId);
-    notifyListeners();
+  void deleteTransaction(String transactionId) {
+    // TODO: implement delete logic
   }
 
-  // Comment Methods
+  // ================= COMMENTS =================
   List<Comment> getComments(String transactionId) {
     return _comments[transactionId] ?? [];
   }
 
-  Future<void> addComment(String transactionId, String text) async {
-    final comment = Comment(
-      id: 'comment_${_generateId()}',
-      oderId: _currentUser!.uid,
-      text: text,
-      timestamp: DateTime.now(),
-      userName: _currentUser!.name,
-    );
-
-    if (_comments[transactionId] == null) {
-      _comments[transactionId] = [];
-    }
-    _comments[transactionId]!.add(comment);
-    notifyListeners();
+  void addComment(String transactionId, String text) {
+    // TODO: implement comment logic
   }
 
-  // Sample Data
-  void _addSampleTransactions() {
-    final now = DateTime.now();
-    _transactions = [
-      Transaction(
-        id: 'tx_1',
-        title: 'Grocery Shopping',
-        amount: 2500,
-        category: 'Food & Dining',
-        type: TransactionType.expense,
-        date: now,
-        note: 'Weekly groceries from supermarket',
-        createdBy: _currentUser!.uid,
-        createdByName: _currentUser!.name,
-      ),
-      Transaction(
-        id: 'tx_2',
-        title: 'Electricity Bill',
-        amount: 3500,
-        category: 'Bills & Utilities',
-        type: TransactionType.expense,
-        date: now.subtract(const Duration(days: 1)),
-        note: 'Monthly electricity bill',
-        createdBy: 'partner_123',
-        createdByName: 'Partner',
-      ),
-      Transaction(
-        id: 'tx_3',
-        title: 'Monthly Salary',
-        amount: 75000,
-        category: 'Salary',
-        type: TransactionType.income,
-        date: now.subtract(const Duration(days: 2)),
-        createdBy: _currentUser!.uid,
-        createdByName: _currentUser!.name,
-      ),
-      Transaction(
-        id: 'tx_4',
-        title: 'Restaurant Dinner',
-        amount: 1800,
-        category: 'Food & Dining',
-        type: TransactionType.expense,
-        date: now.subtract(const Duration(days: 3)),
-        note: 'Anniversary dinner',
-        createdBy: 'partner_123',
-        createdByName: 'Partner',
-      ),
-    ];
-
-    // Sample comments
-    _comments['tx_1'] = [
-      Comment(
-        id: 'c1',
-        oderId: 'partner_123',
-        text: 'Did you get the milk?',
-        timestamp: now.subtract(const Duration(hours: 2)),
-        userName: 'Partner',
-      ),
-      Comment(
-        id: 'c2',
-        oderId: _currentUser!.uid,
-        text: 'Yes, got everything on the list!',
-        timestamp: now.subtract(const Duration(hours: 1)),
-        userName: _currentUser!.name,
-      ),
-    ];
-
-    _comments['tx_4'] = [
-      Comment(
-        id: 'c3',
-        oderId: _currentUser!.uid,
-        text: 'Great choice of restaurant! ❤️',
-        timestamp: now.subtract(const Duration(days: 2)),
-        userName: _currentUser!.name,
-      ),
-    ];
+  void leaveHousehold() {
+    // TODO: implement leave household logic
   }
 
-  // Demo login for quick testing
   Future<void> demoLogin() async {
-    await signup('John', 'john@example.com', 'password', 50000);
-
-    // Add member to household
-    _household = _household!.copyWith(
-      memberIds: [..._household!.memberIds, 'member_123'],
-      roles: {..._household!.roles, 'member_123': 'contributor'},
+    await signup(
+      'Demo User',
+      'demo${_generateId()}@mail.com',
+      'password',
+      50000,
     );
-
-    _householdMembers['member_123'] = UserModel(
-      uid: 'member_123',
-      name: 'Sarah',
-      email: 'sarah@example.com',
-      householdId: _household!.id,
-    );
-
-    notifyListeners();
   }
 }

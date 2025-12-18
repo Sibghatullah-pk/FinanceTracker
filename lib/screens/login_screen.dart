@@ -32,17 +32,24 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     final appState = context.read<AppState>();
-    final success = await appState.login(
+    final error = await appState.login(
       _emailController.text.trim(),
       _passwordController.text,
     );
 
     setState(() => _isLoading = false);
 
-    if (success && mounted) {
+    if (error == null && mounted) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const MainScreen()),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login failed: $error'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
