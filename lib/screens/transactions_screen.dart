@@ -33,22 +33,21 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       ),
       body: Consumer<AppState>(
         builder: (context, appState, child) {
-          // Use app.Transaction type
           List<app.Transaction> filteredTransactions = appState.transactions;
 
           if (_selectedFilter == 'Income') {
-            filteredTransactions = appState.transactions
+            filteredTransactions = filteredTransactions
                 .where((t) => t.type == app.TransactionType.income)
                 .toList();
           } else if (_selectedFilter == 'Expense') {
-            filteredTransactions = appState.transactions
+            filteredTransactions = filteredTransactions
                 .where((t) => t.type == app.TransactionType.expense)
                 .toList();
           }
 
           return Column(
             children: [
-              // Filter Tabs
+              // Filter Chips
               Container(
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -62,42 +61,45 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 ),
               ),
 
-              // Transactions List
+              // Transaction List
               Expanded(
                 child: filteredTransactions.isEmpty
                     ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.receipt_long_outlined,
-                        size: 64,
-                        color: Colors.grey[300],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No transactions yet',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey[600],
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.receipt_long_outlined,
+                                size: 64, color: Colors.grey[300]),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No transactions yet',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
-                )
+                      )
                     : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: filteredTransactions.length,
-                  itemBuilder: (context, index) {
-                    final transaction = filteredTransactions[index];
-                    return _buildTransactionItem(
-                        context, transaction, appState);
-                  },
-                ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: filteredTransactions.length,
+                        itemBuilder: (context, index) {
+                          final transaction = filteredTransactions[index];
+                          return _buildTransactionItem(
+                              context, transaction, appState);
+                        },
+                      ),
               ),
             ],
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddExpenseDialog(context),
+        icon: const Icon(Icons.add),
+        label: const Text('Add Expense'),
+        backgroundColor: AppTheme.primaryColor,
       ),
     );
   }
@@ -245,5 +247,86 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       default:
         return Icons.attach_money;
     }
+  }
+
+  void _showAddExpenseDialog(BuildContext context) {
+    final titleController = TextEditingController();
+    final amountController = TextEditingController();
+    String selectedCategory = 'Food & Dining';
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Add Expense'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(labelText: 'Title'),
+              ),
+              TextField(
+                controller: amountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Amount'),
+              ),
+              DropdownButton<String>(
+                value: selectedCategory,
+                isExpanded: true,
+                items: [
+                  'Food & Dining',
+                  'Transportation',
+                  'Shopping',
+                  'Entertainment',
+                  'Bills & Utilities',
+                  'Healthcare',
+                  'Others',
+                ].map((cat) => DropdownMenuItem(
+                      value: cat,
+                      child: Text(cat),
+                    )).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => selectedCategory = value);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final appState = context.read<AppState>();
+                final title = titleController.text.trim();
+                final amount =
+                    double.tryParse(amountController.text.trim()) ?? 0;
+
+                if (title.isEmpty || amount <= 0) return;
+
+                final transaction = app.Transaction(
+                  id: '', // Firestore will generate this
+                  title: title,
+                  amount: amount,
+                  category: selectedCategory,
+                  type: app.TransactionType.expense,
+                  date: DateTime.now(),
+                  createdBy: appState.currentUser!.uid,
+                  createdByName: appState.currentUser!.name,
+                );
+
+                await appState.addTransaction(transaction);
+                Navigator.pop(context);
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
