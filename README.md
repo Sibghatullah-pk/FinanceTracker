@@ -156,8 +156,8 @@ households/
 - [x] Budget management
 - [x] Statistics dashboard
 - [ ] Firebase backend integration
-- [ ] Push notifications for new expenses
-- [ ] Monthly reports export
+- [x] Push notifications for new expenses //not done
+- [x] Monthly reports export
 - [ ] Savings goals feature
 - [ ] Dark mode theme
 - [ ] Ai for predictions

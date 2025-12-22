@@ -249,6 +249,29 @@ class StatisticsScreen extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 20),
+
+                // Export Report Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      final now = DateTime.now();
+                      await appState.exportMonthlyReport(now.year, now.month);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Report exported successfully!')),
+                      );
+                    },
+                    icon: const Icon(Icons.download),
+                    label: const Text('Export Monthly Report'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           );
