@@ -23,9 +23,10 @@ class UserModel {
     };
   }
 
-  factory UserModel.fromJson(Map<String, dynamic> json) {
+  /// ✅ Use Firestore doc ID as uid instead of requiring it in the document
+  factory UserModel.fromJson(String uid, Map<String, dynamic> json) {
     return UserModel(
-      uid: json['uid'] as String,
+      uid: uid,
       name: json['name'] as String,
       email: json['email'] as String,
       householdId: json['householdId'] as String?,

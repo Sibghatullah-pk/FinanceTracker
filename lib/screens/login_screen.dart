@@ -29,28 +29,46 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    debugPrint("Attempting login with email: '$email'");
+    debugPrint("Password length: ${password.length}");
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Email or password cannot be empty'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     final appState = context.read<AppState>();
-    final error = await appState.login(
-      _emailController.text.trim(),
-      _passwordController.text,
-    );
+    final error = await appState.login(email, password);
 
     setState(() => _isLoading = false);
 
-    if (error == null && mounted) {
+    if (error == null && mounted && appState.currentUser != null) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const MainScreen()),
       );
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Login failed: $error'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    } else {
+      final message = error ?? 'Unknown error occurred during login';
+      debugPrint("Login failed: $message");
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Login failed: $message'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -83,8 +101,6 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 60),
-
-                // Logo/Icon
                 Container(
                   width: 80,
                   height: 80,
@@ -98,10 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: AppTheme.primaryColor,
                   ),
                 ),
-
                 const SizedBox(height: 32),
-
-                // Title
                 const Text(
                   'Welcome Back',
                   style: TextStyle(
@@ -111,9 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-
                 const SizedBox(height: 8),
-
                 const Text(
                   'Sign in to manage your shared finances',
                   style: TextStyle(
@@ -122,10 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-
                 const SizedBox(height: 48),
-
-                // Email Field
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -140,7 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     fillColor: Colors.white,
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
+                    if (value == null || value.trim().isEmpty) {
                       return 'Please enter your email';
                     }
                     if (!value.contains('@')) {
@@ -149,10 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 16),
-
-                // Password Field
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
@@ -177,19 +182,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     fillColor: Colors.white,
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
+                    if (value == null || value.trim().isEmpty) {
                       return 'Please enter your password';
                     }
-                    if (value.length < 6) {
+                    if (value.trim().length < 6) {
                       return 'Password must be at least 6 characters';
                     }
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 24),
-
-                // Login Button
                 SizedBox(
                   height: 56,
                   child: ElevatedButton(
@@ -219,10 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
-                // Demo Button
                 SizedBox(
                   height: 56,
                   child: OutlinedButton(
@@ -242,10 +241,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
-                // Sign Up Link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

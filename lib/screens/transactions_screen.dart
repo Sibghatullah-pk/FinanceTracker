@@ -1,8 +1,9 @@
+// lib/screens/transactions_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_state.dart';
-import '../models/transaction.dart' as app; // ✅ Use alias
+import '../models/transaction.dart' as app;
 import '../utils/app_theme.dart';
 import 'expense_detail_screen.dart';
 
@@ -274,7 +275,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               DropdownButton<String>(
                 value: selectedCategory,
                 isExpanded: true,
-                items: [
+                items: const [
                   'Food & Dining',
                   'Transportation',
                   'Shopping',
@@ -302,6 +303,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             ElevatedButton(
               onPressed: () async {
                 final appState = context.read<AppState>();
+                if (appState.currentUser == null || appState.household == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please login and create/join a household first')),
+                  );
+                  return;
+                }
+
                 final title = titleController.text.trim();
                 final amount =
                     double.tryParse(amountController.text.trim()) ?? 0;
@@ -315,6 +323,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   category: selectedCategory,
                   type: app.TransactionType.expense,
                   date: DateTime.now(),
+                  note: null,
                   createdBy: appState.currentUser!.uid,
                   createdByName: appState.currentUser!.name,
                 );
