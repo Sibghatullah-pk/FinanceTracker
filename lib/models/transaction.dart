@@ -54,7 +54,7 @@ class Transaction {
 
     final rawType = json['type'];
     TransactionType parsedType;
-    if (rawType == 'income' || rawType == 'TransactionType.income') {
+    if (rawType == 'income') {
       parsedType = TransactionType.income;
     } else {
       parsedType = TransactionType.expense;

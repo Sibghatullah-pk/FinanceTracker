@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../models/transaction.dart';
-import '../utils/app_theme.dart';
 
 class StatisticsScreen extends StatelessWidget {
   const StatisticsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Statistics'),
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
       ),
       body: Consumer<AppState>(
@@ -48,22 +49,21 @@ class StatisticsScreen extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: theme.colorScheme.surface,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.borderColor),
+                    border: Border.all(color: theme.dividerColor),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         _getCurrentMonth(),
-                        style: const TextStyle(
-                          fontSize: 16,
+                        style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       Icon(Icons.calendar_today,
-                          size: 20, color: Colors.grey[600]),
+                          size: 20, color: theme.iconTheme.color),
                     ],
                   ),
                 ),
@@ -72,179 +72,141 @@ class StatisticsScreen extends StatelessWidget {
 
                 // Budget Progress Card
                 if (appState.household != null)
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Monthly Budget',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Monthly Budget',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              )),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Rs. ${appState.totalSpent.toStringAsFixed(0)} spent',
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                              Text(
+                                'Rs. ${appState.monthlyLimit.toStringAsFixed(0)} budget',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Rs. ${appState.totalSpent.toStringAsFixed(0)} spent',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                color: AppTheme.textSecondary,
+                          const SizedBox(height: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: LinearProgressIndicator(
+                              value: (appState.totalSpent /
+                                      appState.monthlyLimit)
+                                  .clamp(0.0, 1.0),
+                              minHeight: 12,
+                              backgroundColor: theme.dividerColor,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                appState.totalSpent > appState.monthlyLimit
+                                    ? theme.colorScheme.error
+                                    : theme.colorScheme.primary,
                               ),
                             ),
-                            Text(
-                              'Rs. ${appState.monthlyLimit.toStringAsFixed(0)} budget',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: LinearProgressIndicator(
-                            value: (appState.totalSpent / appState.monthlyLimit)
-                                .clamp(0.0, 1.0),
-                            minHeight: 12,
-                            backgroundColor: Colors.grey[200],
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              appState.totalSpent > appState.monthlyLimit
-                                  ? AppTheme.expenseColor
-                                  : AppTheme.primaryColor,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Rs. ${appState.remaining.toStringAsFixed(0)} remaining',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: appState.remaining < 0
+                                  ? theme.colorScheme.error
+                                  : theme.colorScheme.secondary,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Rs. ${appState.remaining.toStringAsFixed(0)} remaining',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: appState.remaining < 0
-                                ? AppTheme.expenseColor
-                                : AppTheme.incomeColor,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
 
                 const SizedBox(height: 20),
 
                 // Income vs Expense Card
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Income vs Expense',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Income vs Expense',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            )),
+                        const SizedBox(height: 20),
+                        _buildStatRow(
+                            context,
+                            'Income',
+                            'Rs. ${totalIncome.toStringAsFixed(0)}',
+                            theme.colorScheme.secondary),
+                        const SizedBox(height: 12),
+                        _buildStatRow(
+                            context,
+                            'Expense',
+                            'Rs. ${totalExpense.toStringAsFixed(0)}',
+                            theme.colorScheme.error),
+                        const SizedBox(height: 12),
+                        const Divider(),
+                        const SizedBox(height: 12),
+                        _buildStatRow(
+                          context,
+                          'Balance',
+                          'Rs. ${balance.toStringAsFixed(0)}',
+                          balance >= 0
+                              ? theme.colorScheme.secondary
+                              : theme.colorScheme.error,
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      _buildStatRow(
-                          'Income',
-                          'Rs. ${totalIncome.toStringAsFixed(0)}',
-                          AppTheme.incomeColor),
-                      const SizedBox(height: 12),
-                      _buildStatRow(
-                          'Expense',
-                          'Rs. ${totalExpense.toStringAsFixed(0)}',
-                          AppTheme.expenseColor),
-                      const SizedBox(height: 12),
-                      const Divider(),
-                      const SizedBox(height: 12),
-                      _buildStatRow(
-                        'Balance',
-                        'Rs. ${balance.toStringAsFixed(0)}',
-                        balance >= 0
-                            ? AppTheme.incomeColor
-                            : AppTheme.expenseColor,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
 
                 const SizedBox(height: 20),
 
                 // Spending by Category
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Spending by Category',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      if (categorySpending.isEmpty)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(20),
-                            child: Text(
-                              'No expenses yet',
-                              style: TextStyle(color: AppTheme.textSecondary),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Spending by Category',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            )),
+                        const SizedBox(height: 20),
+                        if (categorySpending.isEmpty)
+                          Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Text('No expenses yet',
+                                  style: theme.textTheme.bodyMedium),
                             ),
-                          ),
-                        )
-                      else
-                        ...categorySpending.entries.map((entry) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: _buildCategoryBar(
-                              entry.key,
-                              entry.value,
-                              maxCategoryAmount * 1.2,
-                              _getCategoryColor(entry.key),
-                            ),
-                          );
-                        }),
-                    ],
+                          )
+                        else
+                          ...categorySpending.entries.map((entry) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: _buildCategoryBar(
+                                context,
+                                entry.key,
+                                entry.value,
+                                maxCategoryAmount * 1.2,
+                                theme.colorScheme.primary,
+                              ),
+                            );
+                          }),
+                      ],
+                    ),
                   ),
                 ),
 
@@ -258,18 +220,12 @@ class StatisticsScreen extends StatelessWidget {
                       final now = DateTime.now();
                       await appState.exportMonthlyReport(now.year, now.month);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Report exported successfully!')),
+                        const SnackBar(
+                            content: Text('Report exported successfully!')),
                       );
                     },
                     icon: const Icon(Icons.download),
                     label: const Text('Export Monthly Report'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
                   ),
                 ),
               ],
@@ -299,48 +255,25 @@ class StatisticsScreen extends StatelessWidget {
     return '${months[now.month - 1]} ${now.year}';
   }
 
-  Color _getCategoryColor(String category) {
-    switch (category.toLowerCase()) {
-      case 'food & dining':
-        return const Color(0xFFEF4444);
-      case 'transportation':
-        return const Color(0xFF3B82F6);
-      case 'shopping':
-        return const Color(0xFFF59E0B);
-      case 'entertainment':
-        return const Color(0xFF8B5CF6);
-      case 'bills & utilities':
-        return const Color(0xFF10B981);
-      default:
-        return const Color(0xFF6B7280);
-    }
-  }
-
-  Widget _buildStatRow(String label, String amount, Color color) {
+  Widget _buildStatRow(
+      BuildContext context, String label, String amount, Color color) {
+    final theme = Theme.of(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 16,
-            color: AppTheme.textSecondary,
-          ),
-        ),
-        Text(
-          amount,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
+        Text(label, style: theme.textTheme.bodyMedium),
+        Text(amount,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: color,
+            )),
       ],
     );
   }
 
   Widget _buildCategoryBar(
-      String category, double amount, double total, Color color) {
+      BuildContext context, String category, double amount, double total, Color color) {
+    final theme = Theme.of(context);
     final percentage = (amount / total).clamp(0.0, 1.0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -349,22 +282,14 @@ class StatisticsScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Expanded(
-              child: Text(
-                category,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text(category,
+                  style: theme.textTheme.bodyMedium,
+                  overflow: TextOverflow.ellipsis),
             ),
-            Text(
-              'Rs. ${amount.toStringAsFixed(0)}',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            Text('Rs. ${amount.toStringAsFixed(0)}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                )),
           ],
         ),
         const SizedBox(height: 8),
@@ -373,7 +298,7 @@ class StatisticsScreen extends StatelessWidget {
           child: LinearProgressIndicator(
             value: percentage,
             minHeight: 8,
-            backgroundColor: Colors.grey[200],
+            backgroundColor: theme.dividerColor,
             valueColor: AlwaysStoppedAnimation<Color>(color),
           ),
         ),

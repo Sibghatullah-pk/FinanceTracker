@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import '../providers/app_state.dart';
 import '../models/transaction.dart';
 import '../models/comment.dart';
-import '../utils/app_theme.dart';
 
 class ExpenseDetailScreen extends StatefulWidget {
   final Transaction transaction;
@@ -20,6 +19,15 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
   final _scrollController = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    // Ensure comments are loaded for this transaction
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AppState>().loadComments(widget.transaction.id);
+    });
+  }
+
+  @override
   void dispose() {
     _commentController.dispose();
     _scrollController.dispose();
@@ -27,10 +35,11 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
   }
 
   void _sendComment() {
-    if (_commentController.text.trim().isEmpty) return;
+    final text = _commentController.text.trim();
+    if (text.isEmpty) return;
 
     final appState = context.read<AppState>();
-    appState.addComment(widget.transaction.id, _commentController.text.trim());
+    appState.addComment(widget.transaction.id, text);
     _commentController.clear();
 
     // Scroll to bottom
@@ -47,21 +56,21 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final isExpense = widget.transaction.type == TransactionType.expense;
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Transaction Details'),
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         actions: [
           Consumer<AppState>(
             builder: (context, appState, child) {
               if (appState.isAdmin) {
                 return IconButton(
-                  icon: const Icon(Icons.delete_outline,
-                      color: AppTheme.expenseColor),
+                  icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
                   onPressed: () => _showDeleteDialog(context, appState),
                 );
               }
@@ -80,159 +89,144 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Transaction Card
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      children: [
-                        // Icon and Amount
-                        Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color: isExpense
-                                ? AppTheme.expenseColor.withOpacity(0.1)
-                                : AppTheme.incomeColor.withOpacity(0.1),
-                            shape: BoxShape.circle,
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: (isExpense
+                                      ? theme.colorScheme.error
+                                      : theme.colorScheme.secondary)
+                                  .withOpacity(0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              _getCategoryIcon(widget.transaction.category),
+                              size: 32,
+                              color: isExpense
+                                  ? theme.colorScheme.error
+                                  : theme.colorScheme.secondary,
+                            ),
                           ),
-                          child: Icon(
-                            _getCategoryIcon(widget.transaction.category),
-                            size: 32,
-                            color: isExpense
-                                ? AppTheme.expenseColor
-                                : AppTheme.incomeColor,
+                          const SizedBox(height: 16),
+                          Text(
+                            '${isExpense ? '-' : '+'}Rs. ${widget.transaction.amount.toStringAsFixed(0)}',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: isExpense
+                                  ? theme.colorScheme.error
+                                  : theme.colorScheme.secondary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          '${isExpense ? '-' : '+'}Rs. ${widget.transaction.amount.toStringAsFixed(0)}',
-                          style: TextStyle(
-                            fontSize: 36,
-                            fontWeight: FontWeight.bold,
-                            color: isExpense
-                                ? AppTheme.expenseColor
-                                : AppTheme.incomeColor,
+                          const SizedBox(height: 8),
+                          Text(
+                            widget.transaction.title,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          widget.transaction.title,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        const Divider(),
-                        const SizedBox(height: 16),
+                          const SizedBox(height: 20),
+                          const Divider(),
+                          const SizedBox(height: 16),
 
-                        // Details
-                        _buildDetailRow(
-                          'Category',
-                          widget.transaction.category,
-                          Icons.category,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildDetailRow(
-                          'Date',
-                          DateFormat('MMM dd, yyyy • hh:mm a')
-                              .format(widget.transaction.date),
-                          Icons.calendar_today,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildDetailRow(
-                          'Added by',
-                          widget.transaction.createdByName,
-                          Icons.person,
-                        ),
-                        if (widget.transaction.note != null) ...[
+                          _buildDetailRow(
+                            context,
+                            'Category',
+                            widget.transaction.category,
+                            Icons.category,
+                          ),
                           const SizedBox(height: 12),
                           _buildDetailRow(
-                            'Note',
-                            widget.transaction.note!,
-                            Icons.note,
+                            context,
+                            'Date',
+                            DateFormat('MMM dd, yyyy • hh:mm a')
+                                .format(widget.transaction.date),
+                            Icons.calendar_today,
                           ),
+                          const SizedBox(height: 12),
+                          _buildDetailRow(
+                            context,
+                            'Added by',
+                            widget.transaction.createdByName,
+                            Icons.person,
+                          ),
+                          if (widget.transaction.note != null &&
+                              widget.transaction.note!.trim().isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            _buildDetailRow(
+                              context,
+                              'Note',
+                              widget.transaction.note!.trim(),
+                              Icons.note,
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
 
                   const SizedBox(height: 24),
 
-                  // Comments Section
-                  const Text(
+                  Text(
                     'Discussion',
-                    style: TextStyle(
-                      fontSize: 18,
+                    style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'Chat with your partner about this expense',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppTheme.textSecondary,
-                    ),
+                    style: theme.textTheme.bodySmall,
                   ),
                   const SizedBox(height: 16),
 
-                  // Comments List
                   Consumer<AppState>(
                     builder: (context, appState, child) {
                       final comments =
                           appState.getComments(widget.transaction.id);
 
                       if (comments.isEmpty) {
-                        return Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.chat_bubble_outline,
-                                size: 48,
-                                color: Colors.grey[300],
-                              ),
-                              const SizedBox(height: 12),
-                              const Text(
-                                'No comments yet',
-                                style: TextStyle(
-                                  color: AppTheme.textSecondary,
+                        return Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.chat_bubble_outline,
+                                  size: 48,
+                                  color: theme.disabledColor,
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Start a discussion about this expense',
-                                style: TextStyle(
-                                  color: AppTheme.textSecondary,
-                                  fontSize: 12,
+                                const SizedBox(height: 12),
+                                Text(
+                                  'No comments yet',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.hintColor,
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Start a discussion about this expense',
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       }
 
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                      return Card(
                         child: ListView.separated(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: comments.length,
                           separatorBuilder: (_, __) => const Divider(height: 1),
                           itemBuilder: (context, index) {
-                            return _buildCommentItem(comments[index], appState);
+                            return _buildCommentItem(
+                                context, comments[index], appState);
                           },
                         ),
                       );
@@ -247,10 +241,10 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: theme.colorScheme.surface,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: theme.shadowColor.withOpacity(0.07),
                   blurRadius: 10,
                   offset: const Offset(0, -5),
                 ),
@@ -265,10 +259,10 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
                       decoration: InputDecoration(
                         hintText: 'Add a comment...',
                         filled: true,
-                        fillColor: AppTheme.backgroundColor,
+                        fillColor: theme.colorScheme.surface,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
+                          borderSide: BorderSide(color: theme.dividerColor),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -280,8 +274,8 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
                   ),
                   const SizedBox(width: 12),
                   Container(
-                    decoration: const BoxDecoration(
-                      color: AppTheme.primaryColor,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
@@ -298,36 +292,37 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value, IconData icon) {
+  Widget _buildDetailRow(
+      BuildContext context, String label, String value, IconData icon) {
+    final theme = Theme.of(context);
     return Row(
       children: [
-        Icon(icon, size: 20, color: AppTheme.textSecondary),
+        Icon(icon, size: 20, color: theme.hintColor),
         const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppTheme.textSecondary,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: theme.textTheme.bodySmall),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildCommentItem(Comment comment, AppState appState) {
-    final isMe = comment.oderId == appState.currentUser?.uid;
+  Widget _buildCommentItem(
+      BuildContext context, Comment comment, AppState appState) {
+    final theme = Theme.of(context);
+    // FIX: use userId (not oderId)
+    final isMe = comment.userId == appState.currentUser?.uid;
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -336,13 +331,16 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: isMe
-                ? AppTheme.primaryColor.withOpacity(0.1)
-                : AppTheme.incomeColor.withOpacity(0.1),
+            backgroundColor: (isMe
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.secondary)
+                .withOpacity(0.12),
             child: Text(
               comment.userName.substring(0, 1).toUpperCase(),
               style: TextStyle(
-                color: isMe ? AppTheme.primaryColor : AppTheme.incomeColor,
+                color: isMe
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.secondary,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -356,26 +354,21 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
                   children: [
                     Text(
                       isMe ? 'You' : comment.userName,
-                      style: const TextStyle(
+                      style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
-                        fontSize: 14,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       _formatTime(comment.timestamp),
-                      style: const TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 12,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.hintColor,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  comment.text,
-                  style: const TextStyle(fontSize: 14),
-                ),
+                Text(comment.text, style: theme.textTheme.bodyMedium),
               ],
             ),
           ),
@@ -402,6 +395,7 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
   }
 
   void _showDeleteDialog(BuildContext context, AppState appState) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -419,9 +413,9 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
               Navigator.pop(context); // Close dialog
               Navigator.pop(context); // Go back
             },
-            child: const Text(
+            child: Text(
               'Delete',
-              style: TextStyle(color: AppTheme.expenseColor),
+              style: TextStyle(color: theme.colorScheme.error),
             ),
           ),
         ],

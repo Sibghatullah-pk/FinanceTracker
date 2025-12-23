@@ -6,7 +6,8 @@ import 'signup_screen.dart';
 import 'main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final VoidCallback? onToggleTheme; // Dark mode toggle
+  const LoginScreen({super.key, this.onToggleTheme});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -32,9 +33,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    debugPrint("Attempting login with email: '$email'");
-    debugPrint("Password length: ${password.length}");
-
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -59,8 +57,6 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } else {
       final message = error ?? 'Unknown error occurred during login';
-      debugPrint("Login failed: $message");
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -90,8 +86,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: const Text("Login"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.brightness_6),
+            onPressed: widget.onToggleTheme, // Dark mode toggle button
+          ),
+        ],
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -115,28 +122,26 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 32),
-                const Text(
+                Text(
                   'Welcome Back',
-                  style: TextStyle(
-                    fontSize: 28,
+                  style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Sign in to manage your shared finances',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppTheme.textSecondary,
-                  ),
+                  style: theme.textTheme.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 48),
+
+                // Email Field
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  style: theme.textTheme.bodyLarge, // adapts to theme
                   decoration: InputDecoration(
                     labelText: 'Email',
                     hintText: 'Enter your email',
@@ -145,7 +150,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: theme.colorScheme.surface, // adapts to theme
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -158,9 +163,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
+
+                // Password Field
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
+                  style: theme.textTheme.bodyLarge, // adapts to theme
                   decoration: InputDecoration(
                     labelText: 'Password',
                     hintText: 'Enter your password',
@@ -179,7 +187,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: theme.colorScheme.surface, // adapts to theme
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -192,6 +200,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                 ),
                 const SizedBox(height: 24),
+
+                // Sign In Button
                 SizedBox(
                   height: 56,
                   child: ElevatedButton(
@@ -222,6 +232,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                // Demo Account Button
                 SizedBox(
                   height: 56,
                   child: OutlinedButton(
@@ -242,12 +254,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
+
+                // Sign Up Link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
+                    Text(
                       "Don't have an account? ",
-                      style: TextStyle(color: AppTheme.textSecondary),
+                      style: theme.textTheme.bodyMedium,
                     ),
                     TextButton(
                       onPressed: () {

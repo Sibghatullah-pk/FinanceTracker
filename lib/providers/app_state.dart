@@ -1,22 +1,20 @@
 // lib/providers/app_state.dart
-import 'dart:math';
-import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../models/transaction.dart' as app;
 import '../models/user_model.dart';
 import '../models/household.dart';
 import '../models/comment.dart';
+import '../models/savings_goal.dart';
 
 class AppState extends ChangeNotifier {
   // Firebase
@@ -27,74 +25,41 @@ class AppState extends ChangeNotifier {
   UserModel? _currentUser;
   Household? _household;
 
-  // Strongly typed
+  // Caches
   final List<app.Transaction> _transactions = [];
-  final Map<String, List<Comment>> _comments = {};
+  final Map<String, List<Comment>> _comments = {}; // transactionId -> List<Comment>
   final Map<String, UserModel> _householdMembers = {};
+  final List<SavingsGoal> _goals = [];
 
   // ================= GETTERS =================
   UserModel? get currentUser => _currentUser;
   Household? get household => _household;
   List<app.Transaction> get transactions => _transactions;
+  List<SavingsGoal> get goals => _goals;
 
   bool get isLoggedIn => _currentUser != null;
   bool get hasHousehold => _household != null;
   bool get isAdmin => _household?.roles[_currentUser?.uid] == 'admin';
+
   double get totalSpent => _transactions
       .where((t) => t.type == app.TransactionType.expense)
       .fold(0.0, (sum, t) => sum + t.amount);
+
   double get totalIncome => _transactions
       .where((t) => t.type == app.TransactionType.income)
       .fold(0.0, (sum, t) => sum + t.amount);
+
   double get monthlyLimit => _household?.monthlyLimit ?? 0;
   double get remaining => monthlyLimit - totalSpent;
+  double get balance => totalIncome - totalSpent;
+
   List<UserModel> get members => _householdMembers.values.toList();
 
   // ================= HELPERS =================
-  String _generateId() {
+  String _generateId({int length = 8}) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = Random();
-    return List.generate(8, (_) => chars[random.nextInt(chars.length)]).join();
-  }
-
-  Future<void> _storeFCMToken() async {
-    if (_currentUser == null) return;
-    try {
-      final token = await FirebaseMessaging.instance.getToken();
-      if (token != null) {
-        await _db.collection('users').doc(_currentUser!.uid).update({
-          'fcmToken': token,
-        });
-      }
-    } catch (e) {
-      debugPrint("FCM token error ignored: $e");
-    }
-  }
-
-  Future<void> _sendNotificationToHousehold(String title, String body) async {
-    if (_household == null || _currentUser == null) return;
-
-    final serverKey = 'YOUR_FCM_SERVER_KEY'; // Replace with actual key
-
-    for (final memberId in _household!.memberIds) {
-      if (memberId == _currentUser!.uid) continue;
-
-      final memberDoc = await _db.collection('users').doc(memberId).get();
-      final token = memberDoc.data()?['fcmToken'];
-      if (token != null) {
-        await http.post(
-          Uri.parse('https://fcm.googleapis.com/fcm/send'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'key=$serverKey',
-          },
-          body: jsonEncode({
-            'to': token,
-            'notification': {'title': title, 'body': body},
-          }),
-        );
-      }
-    }
+    return List.generate(length, (_) => chars[random.nextInt(chars.length)]).join();
   }
 
   // ================= AUTH =================
@@ -102,7 +67,7 @@ class AppState extends ChangeNotifier {
     try {
       final result = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
-        password: password,
+        password: password.trim(),
       );
 
       final user = result.user!;
@@ -114,9 +79,8 @@ class AppState extends ChangeNotifier {
       if (_currentUser!.householdId != null) {
         await _loadHousehold(_currentUser!.householdId!);
         await _loadTransactions();
+        await _loadGoals();
       }
-
-      _storeFCMToken(); // Do not await
 
       notifyListeners();
       return null;
@@ -128,11 +92,15 @@ class AppState extends ChangeNotifier {
   }
 
   Future<String?> signup(
-      String name, String email, String password, double monthlyBudget) async {
+    String name,
+    String email,
+    String password,
+    double monthlyBudget,
+  ) async {
     try {
       final result = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
-        password: password,
+        password: password.trim(),
       );
 
       final user = result.user!;
@@ -188,6 +156,7 @@ class AppState extends ChangeNotifier {
     _transactions.clear();
     _comments.clear();
     _householdMembers.clear();
+    _goals.clear();
     notifyListeners();
   }
 
@@ -204,7 +173,7 @@ class AppState extends ChangeNotifier {
       inviteCode: data['inviteCode'],
     );
 
-    // Load members
+    // Load member details
     _householdMembers.clear();
     for (final uid in _household!.memberIds) {
       final userDoc = await _db.collection('users').doc(uid).get();
@@ -251,6 +220,7 @@ class AppState extends ChangeNotifier {
 
       await _loadHousehold(householdId);
       await _loadTransactions();
+      await _loadGoals();
       notifyListeners();
       return true;
     } catch (e) {
@@ -260,7 +230,7 @@ class AppState extends ChangeNotifier {
   }
 
   void leaveHousehold() {
-    // TODO: implement leave logic
+    // TODO: implement leave logic when needed
   }
 
   // ================= TRANSACTIONS =================
@@ -275,25 +245,7 @@ class AppState extends ChangeNotifier {
 
     _transactions
       ..clear()
-      ..addAll(snap.docs.map((d) {
-        final data = d.data();
-        final rawDate = data['date'];
-        final parsedDate = rawDate is Timestamp ? rawDate.toDate() : DateTime.now();
-        final parsedType =
-            data['type'] == 'income' ? app.TransactionType.income : app.TransactionType.expense;
-
-        return app.Transaction(
-          id: d.id,
-          title: data['title'],
-          amount: (data['amount'] as num).toDouble(),
-          category: data['category'],
-          type: parsedType,
-          date: parsedDate,
-          createdBy: data['createdBy'] ?? '',
-          createdByName: data['createdByName'] ?? '',
-          note: data['note'],
-        );
-      }));
+      ..addAll(snap.docs.map((d) => app.Transaction.fromMap(d.id, d.data())));
 
     notifyListeners();
   }
@@ -314,10 +266,6 @@ class AppState extends ChangeNotifier {
 
     _transactions.add(enriched.copyWith(id: docRef.id));
     notifyListeners();
-
-    final type = transaction.type == app.TransactionType.expense ? 'Expense' : 'Income';
-    await _sendNotificationToHousehold(
-        'New $type Added', '${_currentUser!.name} added Rs. ${transaction.amount} for ${transaction.title}');
   }
 
   Future<void> deleteTransaction(String transactionId) async {
@@ -334,8 +282,223 @@ class AppState extends ChangeNotifier {
 
   // ================= COMMENTS =================
   List<Comment> getComments(String transactionId) => _comments[transactionId] ?? [];
-  void addComment(String transactionId, String text) {
-    // TODO: implement comment
+
+  Future<void> loadComments(String transactionId) async {
+    if (_household == null) return;
+    final snap = await _db
+        .collection('households')
+        .doc(_household!.id)
+        .collection('transactions')
+        .doc(transactionId)
+        .collection('comments')
+        .orderBy('timestamp', descending: false)
+        .get();
+
+    final list = snap.docs.map((d) => Comment.fromJson(d.id, d.data())).toList();
+    _comments[transactionId] = list;
+    notifyListeners();
+  }
+
+  Future<void> addComment(String transactionId, String text) async {
+    if (_household == null || _currentUser == null) return;
+
+    final commentCol = _db
+        .collection('households')
+        .doc(_household!.id)
+        .collection('transactions')
+        .doc(transactionId)
+        .collection('comments');
+
+    final docRef = commentCol.doc();
+
+    final commentData = {
+      'userId': _currentUser!.uid,
+      'userName': _currentUser!.name,
+      'text': text,
+      'timestamp': Timestamp.now(),
+    };
+
+    await docRef.set(commentData);
+
+    final newComment = Comment(
+      id: docRef.id,
+      userId: _currentUser!.uid,
+      userName: _currentUser!.name,
+      text: text,
+      timestamp: DateTime.now(),
+    );
+
+    final list = _comments[transactionId] ?? [];
+    list.add(newComment);
+    _comments[transactionId] = list;
+    notifyListeners();
+  }
+
+  // ================= SAVINGS GOALS =================
+  Future<void> _loadGoals() async {
+    if (_household == null) return;
+    final snap = await _db
+        .collection('households')
+        .doc(_household!.id)
+        .collection('savingsGoals')
+        .orderBy('createdAt', descending: true)
+        .get();
+
+    _goals
+      ..clear()
+      ..addAll(snap.docs.map((d) => SavingsGoal.fromMap(d.id, d.data())));
+    notifyListeners();
+  }
+
+  Future<String?> createGoal({
+    required String title,
+    required double targetAmount,
+    required DateTime deadline,
+    String? notes,
+  }) async {
+    if (_household == null || _currentUser == null) return 'Not in a household';
+
+    final goalsCol = _db
+        .collection('households')
+        .doc(_household!.id)
+        .collection('savingsGoals');
+
+    final docRef = goalsCol.doc();
+
+    final goal = SavingsGoal(
+      id: docRef.id,
+      title: title,
+      targetAmount: targetAmount,
+      currentAmount: 0,
+      deadline: deadline,
+      createdBy: _currentUser!.uid,
+      createdAt: DateTime.now(),
+      notes: notes,
+      archived: false,
+    );
+
+    await docRef.set({
+      'title': goal.title,
+      'targetAmount': goal.targetAmount,
+      'currentAmount': goal.currentAmount,
+      'deadline': Timestamp.fromDate(goal.deadline),
+      'createdBy': goal.createdBy,
+      'createdAt': Timestamp.fromDate(goal.createdAt),
+      'notes': goal.notes,
+      'archived': goal.archived,
+    });
+
+    _goals.insert(0, goal);
+    notifyListeners();
+    return null;
+  }
+
+  Future<String?> updateGoal(
+    SavingsGoal goal, {
+    String? title,
+    double? targetAmount,
+    DateTime? deadline,
+    String? notes,
+    bool? archived,
+  }) async {
+    if (_household == null) return 'Not in a household';
+
+    final updates = <String, dynamic>{};
+    if (title != null) updates['title'] = title;
+    if (targetAmount != null) updates['targetAmount'] = targetAmount;
+    if (deadline != null) updates['deadline'] = Timestamp.fromDate(deadline);
+    if (notes != null) updates['notes'] = notes;
+    if (archived != null) updates['archived'] = archived;
+
+    await _db
+        .collection('households')
+        .doc(_household!.id)
+        .collection('savingsGoals')
+        .doc(goal.id)
+        .update(updates);
+
+    final idx = _goals.indexWhere((g) => g.id == goal.id);
+    if (idx != -1) {
+      _goals[idx] = SavingsGoal(
+        id: goal.id,
+        title: title ?? goal.title,
+        targetAmount: targetAmount ?? goal.targetAmount,
+        currentAmount: goal.currentAmount,
+        deadline: deadline ?? goal.deadline,
+        createdBy: goal.createdBy,
+        createdAt: goal.createdAt,
+        notes: notes ?? goal.notes,
+        archived: archived ?? goal.archived,
+      );
+      notifyListeners();
+    }
+    return null;
+  }
+
+  Future<String?> allocateToGoal(String goalId, double amount) async {
+    if (_household == null || amount <= 0) return 'Invalid amount';
+
+    final docRef = _db
+        .collection('households')
+        .doc(_household!.id)
+        .collection('savingsGoals')
+        .doc(goalId);
+
+    await _db.runTransaction((txn) async {
+      final snap = await txn.get(docRef);
+      if (!snap.exists) throw Exception('Goal not found');
+
+      final data = snap.data()!;
+      final current = (data['currentAmount'] as num).toDouble();
+      final newAmount = current + amount;
+      txn.update(docRef, {'currentAmount': newAmount});
+    });
+
+    final idx = _goals.indexWhere((g) => g.id == goalId);
+    if (idx != -1) {
+      final g = _goals[idx];
+      _goals[idx] = SavingsGoal(
+        id: g.id,
+        title: g.title,
+        targetAmount: g.targetAmount,
+        currentAmount: g.currentAmount + amount,
+        deadline: g.deadline,
+        createdBy: g.createdBy,
+        createdAt: g.createdAt,
+        notes: g.notes,
+        archived: g.archived,
+      );
+      notifyListeners();
+    }
+    return null;
+  }
+
+  Future<void> archiveGoal(String goalId) async {
+    if (_household == null) return;
+
+    await _db
+        .collection('households')
+        .doc(_household!.id)
+        .collection('savingsGoals')
+        .doc(goalId)
+        .update({'archived': true});
+
+    final idx = _goals.indexWhere((g) => g.id == goalId);
+    if (idx != -1) {
+      final g = _goals[idx];
+      _goals[idx] = SavingsGoal(
+        id: g.id,
+        title: g.title,
+        targetAmount: g.targetAmount,
+        currentAmount: g.currentAmount,
+        deadline: g.deadline,
+        createdBy: g.createdBy,
+        createdAt: g.createdAt,
+        notes: g.notes,
+        archived: true,
+      );
+      notifyListeners();
+    }
   }
 
   // ================= REPORTS =================
@@ -353,37 +516,25 @@ class AppState extends ChangeNotifier {
         .where('date', isLessThanOrEqualTo: Timestamp.fromDate(end))
         .get();
 
-    final transactions = query.docs.map((doc) {
-      final data = doc.data();
-      final rawDate = data['date'];
-      final parsedDate = rawDate is Timestamp ? rawDate.toDate() : DateTime.now();
-      final parsedType =
-          data['type'] == 'income' ? app.TransactionType.income : app.TransactionType.expense;
+    final txns = query.docs
+        .map((doc) => app.Transaction.fromMap(doc.id, doc.data()))
+        .toList();
 
-      return app.Transaction(
-        id: doc.id,
-        title: data['title'],
-        amount: (data['amount'] as num).toDouble(),
-        category: data['category'],
-        type: parsedType,
-        date: parsedDate,
-        note: data['note'],
-        createdBy: data['createdBy'] ?? '',
-        createdByName: data['createdByName'] ?? '',
-      );
-    }).toList();
+    final totalExpenses = txns
+        .where((t) => t.type == app.TransactionType.expense)
+        .fold(0.0, (sum, t) => sum + t.amount);
 
-    // Totals
-    final totalExpenses =
-        transactions.where((t) => t.type == app.TransactionType.expense).fold(0.0, (sum, t) => sum + t.amount);
-    final totalIncome =
-        transactions.where((t) => t.type == app.TransactionType.income).fold(0.0, (sum, t) => sum + t.amount);
-    final savings = _household!.monthlyLimit - totalExpenses;
+    final totalIncome = txns
+        .where((t) => t.type == app.TransactionType.income)
+        .fold(0.0, (sum, t) => sum + t.amount);
 
-    // Category breakdown
+    final balance = totalIncome - totalExpenses;
+    final remainingBudget = monthlyLimit - totalExpenses;
+
     final categoryBreakdown = <String, double>{};
-    for (final t in transactions.where((t) => t.type == app.TransactionType.expense)) {
-      categoryBreakdown[t.category] = (categoryBreakdown[t.category] ?? 0) + t.amount;
+    for (final t in txns.where((t) => t.type == app.TransactionType.expense)) {
+      categoryBreakdown[t.category] =
+          (categoryBreakdown[t.category] ?? 0) + t.amount;
     }
 
     final pdf = pw.Document();
@@ -392,35 +543,49 @@ class AppState extends ChangeNotifier {
         build: (pw.Context context) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Text('Monthly Financial Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+            pw.Text('Monthly Financial Report',
+                style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
             pw.Text('Month: $month/$year', style: pw.TextStyle(fontSize: 16)),
-            pw.Text('Household: ${_household!.inviteCode}', style: pw.TextStyle(fontSize: 16)),
+            pw.Text('Household Code: ${_household!.inviteCode}',
+                style: pw.TextStyle(fontSize: 16)),
             pw.SizedBox(height: 20),
-            pw.Text('Summary', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.Text('Summary',
+                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 10),
             pw.Table.fromTextArray(
               headers: ['Metric', 'Amount'],
               data: [
-                ['Total Budget', 'Rs. ${_household!.monthlyLimit}'],
+                ['Total Budget', 'Rs. ${monthlyLimit.toStringAsFixed(2)}'],
                 ['Total Income', 'Rs. ${totalIncome.toStringAsFixed(2)}'],
                 ['Total Expenses', 'Rs. ${totalExpenses.toStringAsFixed(2)}'],
-                ['Savings', 'Rs. ${savings.toStringAsFixed(2)}'],
+                ['Remaining Budget', 'Rs. ${remainingBudget.toStringAsFixed(2)}'],
+                ['Balance (Income - Expense)', 'Rs. ${balance.toStringAsFixed(2)}'],
               ],
             ),
             pw.SizedBox(height: 20),
-            pw.Text('Spending by Category', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.Text('Spending by Category',
+                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 10),
             pw.Table.fromTextArray(
               headers: ['Category', 'Amount'],
-              data: categoryBreakdown.entries.map((e) => [e.key, 'Rs. ${e.value.toStringAsFixed(2)}']).toList(),
+              data: categoryBreakdown.entries
+                  .map((e) => [e.key, 'Rs. ${e.value.toStringAsFixed(2)}'])
+                  .toList(),
             ),
             pw.SizedBox(height: 20),
-            pw.Text('All Transactions', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.Text('All Transactions',
+                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 10),
             pw.Table.fromTextArray(
               headers: ['Date', 'Title', 'Category', 'Type', 'Amount'],
-              data: transactions
-                  .map((t) => [t.date.toString().split(' ')[0], t.title, t.category, t.type == app.TransactionType.expense ? 'Expense' : 'Income', 'Rs. ${t.amount.toStringAsFixed(2)}'])
+              data: txns
+                  .map((t) => [
+                        t.date.toString().split(' ').first,
+                        t.title,
+                        t.category,
+                        t.type == app.TransactionType.expense ? 'Expense' : 'Income',
+                        'Rs. ${t.amount.toStringAsFixed(2)}',
+                      ])
                   .toList(),
             ),
           ],
@@ -428,18 +593,37 @@ class AppState extends ChangeNotifier {
       ),
     );
 
+    final bytes = await pdf.save();
+
     if (kIsWeb) {
-      await Printing.layoutPdf(onLayout: (format) async => pdf.save());
-    } else {
-      final output = await getTemporaryDirectory();
-      final file = File('${output.path}/monthly_report_${month}_${year}.pdf');
-      await file.writeAsBytes(await pdf.save());
-      await Printing.sharePdf(bytes: await pdf.save(), filename: 'monthly_report_${month}_${year}.pdf');
+      await Printing.layoutPdf(onLayout: (format) async => bytes);
+      return;
     }
+
+    Directory? targetDir;
+    try {
+      targetDir = await getDownloadsDirectory();
+    } catch (_) {
+      targetDir = null;
+    }
+    targetDir ??= await getApplicationDocumentsDirectory();
+
+    final filePath = '${targetDir.path}/monthly_report_${month}_$year.pdf';
+    final file = File(filePath);
+    await file.writeAsBytes(bytes, flush: true);
+
+    try {
+      await Printing.sharePdf(bytes: bytes, filename: 'monthly_report_${month}_$year.pdf');
+    } catch (_) {}
   }
 
   // ================= DEMO =================
   Future<void> demoLogin() async {
-    await signup('Demo User', 'demo${_generateId()}@mail.com', 'password', 50000);
+    await signup(
+      'Demo User',
+      'demo${_generateId()}@mail.com',
+      'password',
+      50000,
+    );
   }
 }

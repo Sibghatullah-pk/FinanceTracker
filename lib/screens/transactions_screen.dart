@@ -1,10 +1,8 @@
-// lib/screens/transactions_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_state.dart';
 import '../models/transaction.dart' as app;
-import '../utils/app_theme.dart';
 import 'expense_detail_screen.dart';
 
 class TransactionsScreen extends StatefulWidget {
@@ -19,11 +17,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('All Expenses'),
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         actions: [
           IconButton(
@@ -53,11 +53,11 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    _buildFilterChip('All'),
+                    _buildFilterChip(context, 'All'),
                     const SizedBox(width: 8),
-                    _buildFilterChip('Expense'),
+                    _buildFilterChip(context, 'Expense'),
                     const SizedBox(width: 8),
-                    _buildFilterChip('Income'),
+                    _buildFilterChip(context, 'Income'),
                   ],
                 ),
               ),
@@ -70,13 +70,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.receipt_long_outlined,
-                                size: 64, color: Colors.grey[300]),
+                                size: 64, color: theme.disabledColor),
                             const SizedBox(height: 16),
                             Text(
                               'No transactions yet',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey[600],
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: theme.hintColor,
                               ),
                             ),
                           ],
@@ -100,12 +99,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         onPressed: () => _showAddExpenseDialog(context),
         icon: const Icon(Icons.add),
         label: const Text('Add Expense'),
-        backgroundColor: AppTheme.primaryColor,
+        backgroundColor: theme.colorScheme.primary,
       ),
     );
   }
 
-  Widget _buildFilterChip(String label) {
+  Widget _buildFilterChip(BuildContext context, String label) {
+    final theme = Theme.of(context);
     final isSelected = _selectedFilter == label;
     return InkWell(
       onTap: () {
@@ -116,16 +116,16 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor : Colors.white,
+          color: isSelected ? theme.colorScheme.primary : theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
+            color: isSelected ? theme.colorScheme.primary : theme.dividerColor,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : AppTheme.textSecondary,
+            color: isSelected ? Colors.white : theme.textTheme.bodyMedium?.color,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
@@ -135,94 +135,67 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   Widget _buildTransactionItem(
       BuildContext context, app.Transaction transaction, AppState appState) {
+    final theme = Theme.of(context);
     final isExpense = transaction.type == app.TransactionType.expense;
     final comments = appState.getComments(transaction.id);
 
-    return Container(
+    return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ExpenseDetailScreen(transaction: transaction),
-              ),
-            );
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: isExpense
-                        ? AppTheme.expenseColor.withOpacity(0.1)
-                        : AppTheme.incomeColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    _getCategoryIcon(transaction.category),
-                    color: isExpense
-                        ? AppTheme.expenseColor
-                        : AppTheme.incomeColor,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        transaction.title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Text(
-                            transaction.createdByName,
-                            style: const TextStyle(
-                              color: AppTheme.textSecondary,
-                              fontSize: 13,
-                            ),
-                          ),
-                          if (comments.isNotEmpty) ...[
-                            const SizedBox(width: 8),
-                            Icon(Icons.chat_bubble_outline,
-                                size: 14, color: Colors.grey[400]),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${comments.length}',
-                              style: TextStyle(
-                                  color: Colors.grey[400], fontSize: 12),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  '${isExpense ? '-' : '+'}Rs. ${transaction.amount.toStringAsFixed(0)}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: isExpense
-                        ? AppTheme.expenseColor
-                        : AppTheme.incomeColor,
-                  ),
-                ),
-              ],
+      child: ListTile(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ExpenseDetailScreen(transaction: transaction),
             ),
+          );
+        },
+        leading: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: isExpense
+                ? theme.colorScheme.error.withOpacity(0.1)
+                : theme.colorScheme.secondary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            _getCategoryIcon(transaction.category),
+            color: isExpense
+                ? theme.colorScheme.error
+                : theme.colorScheme.secondary,
+          ),
+        ),
+        title: Text(transaction.title,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            )),
+        subtitle: Row(
+          children: [
+            Text(transaction.createdByName,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.hintColor,
+                )),
+            if (comments.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Icon(Icons.chat_bubble_outline,
+                  size: 14, color: theme.disabledColor),
+              const SizedBox(width: 4),
+              Text('${comments.length}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.disabledColor,
+                  )),
+            ],
+          ],
+        ),
+        trailing: Text(
+          '${isExpense ? '-' : '+'}Rs. ${transaction.amount.toStringAsFixed(0)}',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: isExpense
+                ? theme.colorScheme.error
+                : theme.colorScheme.secondary,
           ),
         ),
       ),
@@ -251,6 +224,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   }
 
   void _showAddExpenseDialog(BuildContext context) {
+    final theme = Theme.of(context);
     final titleController = TextEditingController();
     final amountController = TextEditingController();
     String selectedCategory = 'Food & Dining';
@@ -303,9 +277,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             ElevatedButton(
               onPressed: () async {
                 final appState = context.read<AppState>();
-                if (appState.currentUser == null || appState.household == null) {
+                if (appState.currentUser == null ||
+                    appState.household == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please login and create/join a household first')),
+                    const SnackBar(
+                        content: Text(
+                            'Please login and create/join a household first')),
                   );
                   return;
                 }
@@ -317,7 +294,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 if (title.isEmpty || amount <= 0) return;
 
                 final transaction = app.Transaction(
-                  id: '', // Firestore will generate this
+                  id: '',
                   title: title,
                   amount: amount,
                   category: selectedCategory,

@@ -15,8 +15,10 @@ class AppTheme {
   static const Color expenseColor = Color(0xFFEF4444);
   static const Color borderColor = Color(0xFFE5E7EB);
 
+  // Light Theme
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
+    brightness: Brightness.light,
     primaryColor: primaryColor,
     scaffoldBackgroundColor: backgroundColor,
     colorScheme: const ColorScheme.light(
@@ -38,65 +40,67 @@ class AppTheme {
       ),
     ),
     textTheme: const TextTheme(
-      displayLarge: TextStyle(
-        fontSize: 32,
-        fontWeight: FontWeight.bold,
-        color: textPrimary,
-        fontFamily: 'Inter',
-      ),
-      displayMedium: TextStyle(
-        fontSize: 28,
-        fontWeight: FontWeight.bold,
-        color: textPrimary,
-        fontFamily: 'Inter',
-      ),
-      displaySmall: TextStyle(
-        fontSize: 24,
-        fontWeight: FontWeight.w600,
-        color: textPrimary,
-        fontFamily: 'Inter',
-      ),
-      headlineMedium: TextStyle(
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-        color: textPrimary,
-        fontFamily: 'Inter',
-      ),
-      titleLarge: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        color: textPrimary,
-        fontFamily: 'Inter',
-      ),
-      titleMedium: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w500,
-        color: textPrimary,
-        fontFamily: 'Inter',
-      ),
-      bodyLarge: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.normal,
-        color: textPrimary,
-        fontFamily: 'Inter',
-      ),
-      bodyMedium: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.normal,
-        color: textSecondary,
-        fontFamily: 'Inter',
-      ),
-      bodySmall: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.normal,
-        color: textSecondary,
-        fontFamily: 'Inter',
-      ),
+      bodyLarge: TextStyle(color: textPrimary, fontFamily: 'Inter'),
+      bodyMedium: TextStyle(color: textSecondary, fontFamily: 'Inter'),
     ),
     cardTheme: CardThemeData(
       color: cardColor,
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        textStyle: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          fontFamily: 'Inter',
+        ),
+      ),
+    ),
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      backgroundColor: primaryColor,
+      foregroundColor: Colors.white,
+      elevation: 4,
+    ),
+  );
+
+  // Dark Theme
+  static ThemeData darkTheme = ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    primaryColor: primaryColor,
+    scaffoldBackgroundColor: Colors.black,
+    colorScheme: const ColorScheme.dark(
+      primary: primaryColor,
+      secondary: secondaryColor,
+      error: errorColor,
+      surface: Color(0xFF1F2937), // Dark card
+      background: Colors.black,
+    ),
+    appBarTheme: const AppBarTheme(
+      elevation: 0,
+      centerTitle: false,
+      backgroundColor: Colors.black,
+      foregroundColor: Colors.white,
+      titleTextStyle: TextStyle(
+        color: Colors.white,
+        fontSize: 24,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+    textTheme: const TextTheme(
+      bodyLarge: TextStyle(color: Colors.white, fontFamily: 'Inter'),
+      bodyMedium: TextStyle(color: Colors.grey, fontFamily: 'Inter'),
+    ),
+    cardTheme: const CardThemeData(
+      color: Color(0xFF1F2937),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(

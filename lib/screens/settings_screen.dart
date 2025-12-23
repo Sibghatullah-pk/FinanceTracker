@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
-import '../utils/app_theme.dart';
 import 'login_screen.dart';
 import 'join_household_screen.dart';
 
@@ -11,11 +10,13 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Settings'),
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
       ),
       body: Consumer<AppState>(
@@ -26,226 +27,183 @@ class SettingsScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Profile Section
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 32,
-                        backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                        child: Text(
-                          appState.currentUser?.name
-                                  .substring(0, 1)
-                                  .toUpperCase() ??
-                              'U',
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryColor,
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 32,
+                          backgroundColor:
+                              theme.colorScheme.primary.withOpacity(0.1),
+                          child: Text(
+                            appState.currentUser?.name
+                                    .substring(0, 1)
+                                    .toUpperCase() ??
+                                'U',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.primary,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              appState.currentUser?.name ?? 'User',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              appState.currentUser?.email ?? '',
-                              style: const TextStyle(
-                                color: AppTheme.textSecondary,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: appState.isAdmin
-                                    ? AppTheme.primaryColor.withOpacity(0.1)
-                                    : AppTheme.incomeColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                appState.isAdmin ? 'Admin' : 'Contributor',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(appState.currentUser?.name ?? 'User',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  )),
+                              const SizedBox(height: 4),
+                              Text(appState.currentUser?.email ?? '',
+                                  style: theme.textTheme.bodySmall),
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
                                   color: appState.isAdmin
-                                      ? AppTheme.primaryColor
-                                      : AppTheme.incomeColor,
+                                      ? theme.colorScheme.primary
+                                          .withOpacity(0.1)
+                                      : theme.colorScheme.secondary
+                                          .withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  appState.isAdmin ? 'Admin' : 'Contributor',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: appState.isAdmin
+                                        ? theme.colorScheme.primary
+                                        : theme.colorScheme.secondary,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
 
                 const SizedBox(height: 24),
 
                 // Household Section
-                const Text(
-                  'Household',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
+                Text('Household',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    )),
                 const SizedBox(height: 12),
 
                 if (appState.hasHousehold) ...[
-                  // Invite Code Card
+                  // Invite Code Card (Admin only)
                   if (appState.isAdmin)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppTheme.primaryColor.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(
-                                Icons.share,
-                                color: AppTheme.primaryColor,
-                                size: 20,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'Invite Member',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Share this code with family members to link accounts',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.textSecondary,
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.share,
+                                    color: theme.colorScheme.primary),
+                                const SizedBox(width: 8),
+                                Text('Invite Member',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: theme.colorScheme.primary)),
+                              ],
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    appState.household?.inviteCode ?? '',
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 2,
+                            const SizedBox(height: 8),
+                            Text(
+                              'Share this code with family members to link accounts',
+                              style: theme.textTheme.bodySmall,
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.surface,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      appState.household?.inviteCode ?? '',
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 2,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              IconButton(
-                                onPressed: () {
-                                  Clipboard.setData(ClipboardData(
-                                    text: appState.household?.inviteCode ?? '',
-                                  ));
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content:
-                                          Text('Code copied to clipboard!'),
-                                      backgroundColor: AppTheme.successColor,
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.copy),
-                                color: AppTheme.primaryColor,
-                              ),
-                            ],
-                          ),
-                        ],
+                                const SizedBox(width: 12),
+                                IconButton(
+                                  onPressed: () {
+                                    Clipboard.setData(ClipboardData(
+                                      text: appState.household?.inviteCode ?? '',
+                                    ));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: const Text(
+                                            'Code copied to clipboard!'),
+                                        backgroundColor:
+                                            theme.colorScheme.secondary,
+                                      ),
+                                    );
+                                  },
+                                  icon: Icon(Icons.copy,
+                                      color: theme.colorScheme.primary),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
 
                   const SizedBox(height: 12),
 
-                  // Members List
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: [
-                        _buildSettingsTile(
-                          icon: Icons.people,
-                          title: 'Household Members',
-                          subtitle: '${appState.members.length} members',
-                          onTap: () => _showMembersDialog(context, appState),
-                        ),
-                      ],
+                  // Members list
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.people),
+                      title: const Text('Household Members'),
+                      subtitle:
+                          Text('${appState.members.length} members'),
+                      onTap: () => _showMembersDialog(context, appState),
                     ),
                   ),
 
                   const SizedBox(height: 12),
 
-                  // Budget Setting (Admin Only)
+                  // Budget setting (Admin only)
                   if (appState.isAdmin)
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: _buildSettingsTile(
-                        icon: Icons.account_balance_wallet,
-                        title: 'Monthly Budget',
-                        subtitle:
-                            'Rs. ${appState.monthlyLimit.toStringAsFixed(0)}',
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.account_balance_wallet),
+                        title: const Text('Monthly Budget'),
+                        subtitle: Text(
+                            'Rs. ${appState.monthlyLimit.toStringAsFixed(0)}'),
                         onTap: () => _showBudgetDialog(context, appState),
                       ),
                     ),
                 ] else ...[
-                  // Join Household
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: _buildSettingsTile(
-                      icon: Icons.group_add,
-                      title: 'Join Household',
-                      subtitle: 'Enter invite code to join',
+                  // Join household
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.group_add),
+                      title: const Text('Join Household'),
+                      subtitle: const Text('Enter invite code to join'),
                       onTap: () {
                         Navigator.push(
                           context,
@@ -261,34 +219,27 @@ class SettingsScreen extends StatelessWidget {
                 const SizedBox(height: 24),
 
                 // App Section
-                const Text(
-                  'App',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
+                Text('App',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    )),
                 const SizedBox(height: 12),
 
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                Card(
                   child: Column(
                     children: [
-                      _buildSettingsTile(
-                        icon: Icons.notifications,
-                        title: 'Notifications',
-                        subtitle: 'Manage notification preferences',
+                      ListTile(
+                        leading: const Icon(Icons.notifications),
+                        title: const Text('Notifications'),
+                        subtitle:
+                            const Text('Manage notification preferences'),
                         onTap: () {},
                       ),
                       const Divider(height: 1),
-                      _buildSettingsTile(
-                        icon: Icons.info,
-                        title: 'About',
-                        subtitle: 'Version 1.0.0',
+                      ListTile(
+                        leading: const Icon(Icons.info),
+                        title: const Text('About'),
+                        subtitle: const Text('Version 1.0.0'),
                         onTap: () {},
                       ),
                     ],
@@ -297,38 +248,31 @@ class SettingsScreen extends StatelessWidget {
 
                 const SizedBox(height: 24),
 
-                // Danger Zone
-                const Text(
-                  'Account',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
+                // Account Section
+                Text('Account',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    )),
                 const SizedBox(height: 12),
 
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                Card(
                   child: Column(
                     children: [
                       if (appState.hasHousehold)
-                        _buildSettingsTile(
-                          icon: Icons.exit_to_app,
-                          title: 'Leave Household',
-                          subtitle: 'Remove yourself from the household',
-                          iconColor: AppTheme.warningColor,
+                        ListTile(
+                          leading: Icon(Icons.exit_to_app,
+                              color: theme.colorScheme.error),
+                          title: const Text('Leave Household'),
+                          subtitle: const Text(
+                              'Remove yourself from the household'),
                           onTap: () => _showLeaveDialog(context, appState),
                         ),
                       if (appState.hasHousehold) const Divider(height: 1),
-                      _buildSettingsTile(
-                        icon: Icons.logout,
-                        title: 'Sign Out',
-                        subtitle: 'Sign out of your account',
-                        iconColor: AppTheme.expenseColor,
+                      ListTile(
+                        leading: Icon(Icons.logout,
+                            color: theme.colorScheme.error),
+                        title: const Text('Sign Out'),
+                        subtitle: const Text('Sign out of your account'),
                         onTap: () => _showLogoutDialog(context, appState),
                       ),
                     ],
@@ -344,39 +288,6 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSettingsTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-    Color? iconColor,
-  }) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: (iconColor ?? AppTheme.primaryColor).withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          icon,
-          color: iconColor ?? AppTheme.primaryColor,
-          size: 20,
-        ),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(fontWeight: FontWeight.w500),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(fontSize: 13),
-      ),
-      trailing: const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
-      onTap: onTap,
-    );
-  }
-
   void _showMembersDialog(BuildContext context, AppState appState) {
     showDialog(
       context: context,
@@ -388,10 +299,13 @@ class SettingsScreen extends StatelessWidget {
             final role = appState.household?.roles[member.uid] ?? 'contributor';
             return ListTile(
               leading: CircleAvatar(
-                backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                backgroundColor:
+                    Theme.of(context).colorScheme.primary.withOpacity(0.1),
                 child: Text(
                   member.name.substring(0, 1).toUpperCase(),
-                  style: const TextStyle(color: AppTheme.primaryColor),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
               ),
               title: Text(member.name),
@@ -438,6 +352,10 @@ class SettingsScreen extends StatelessWidget {
               if (amount != null && amount > 0) {
                 appState.updateBudgetLimit(amount);
                 Navigator.pop(context);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Enter a valid amount')),
+                );
               }
             },
             child: const Text('Save'),
@@ -465,9 +383,9 @@ class SettingsScreen extends StatelessWidget {
               appState.leaveHousehold();
               Navigator.pop(context);
             },
-            child: const Text(
+            child: Text(
               'Leave',
-              style: TextStyle(color: AppTheme.expenseColor),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ),
         ],
@@ -495,9 +413,9 @@ class SettingsScreen extends StatelessWidget {
                 (route) => false,
               );
             },
-            child: const Text(
+            child: Text(
               'Sign Out',
-              style: TextStyle(color: AppTheme.expenseColor),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ),
         ],
