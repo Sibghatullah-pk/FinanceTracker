@@ -50,6 +50,7 @@ A modern Flutter app for **household finance management**. Perfect for couples o
 
 - Flutter SDK (>=3.0.0)
 - Dart SDK
+- Java 17 or higher
 - Android Studio / VS Code with Flutter extensions
 
 ### Installation
@@ -72,6 +73,24 @@ flutter run -d windows
 
 # Build APK
 flutter build apk --release
+```
+
+### Troubleshooting
+
+#### Gradle Build Errors
+
+If you encounter "Unsupported class file major version" errors, ensure you have:
+- Java 17 or higher installed
+- Compatible Gradle version (8.13+) specified in `android/gradle/wrapper/gradle-wrapper.properties`
+
+Check your Java version:
+```bash
+java -version
+```
+
+If using Flutter Doctor to verify your setup:
+```bash
+flutter doctor --verbose
 ```
 
 ## 📁 Project Structure
