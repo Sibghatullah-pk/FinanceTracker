@@ -9,7 +9,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
   # UI & Utilities
   cupertino_icons: ^1.0.2
   intl: ^0.20.2

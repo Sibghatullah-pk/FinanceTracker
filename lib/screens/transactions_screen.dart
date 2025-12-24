@@ -116,7 +116,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? theme.colorScheme.primary : theme.colorScheme.surface,
+          color: isSelected
+              ? theme.colorScheme.primary
+              : theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? theme.colorScheme.primary : theme.dividerColor,
@@ -125,7 +127,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : theme.textTheme.bodyMedium?.color,
+            color:
+                isSelected ? Colors.white : theme.textTheme.bodyMedium?.color,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
@@ -228,12 +231,15 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     final titleController = TextEditingController();
     final amountController = TextEditingController();
     String selectedCategory = 'Food & Dining';
+    String selectedType = 'Expense';
 
     showDialog(
       context: context,
       builder: (context) {
+        final appState = context.read<AppState>();
+        final isAdmin = appState.isAdmin;
         return AlertDialog(
-          title: const Text('Add Expense'),
+          title: const Text('Add Transaction'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -257,16 +263,46 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   'Bills & Utilities',
                   'Healthcare',
                   'Others',
-                ].map((cat) => DropdownMenuItem(
-                      value: cat,
-                      child: Text(cat),
-                    )).toList(),
+                ]
+                    .map((cat) => DropdownMenuItem(
+                          value: cat,
+                          child: Text(cat),
+                        ))
+                    .toList(),
                 onChanged: (value) {
                   if (value != null) {
                     setState(() => selectedCategory = value);
                   }
                 },
               ),
+              if (isAdmin)
+                DropdownButton<String>(
+                  value: selectedType,
+                  isExpanded: true,
+                  items: const [
+                    DropdownMenuItem(value: 'Expense', child: Text('Expense')),
+                    DropdownMenuItem(value: 'Income', child: Text('Income')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => selectedType = value);
+                    }
+                  },
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline,
+                          size: 16, color: Colors.grey),
+                      const SizedBox(width: 6),
+                      Text('Contributors can only add expenses',
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    ],
+                  ),
+                ),
             ],
           ),
           actions: [
@@ -293,12 +329,24 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
                 if (title.isEmpty || amount <= 0) return;
 
+                // Only admin can add income
+                if (!isAdmin && selectedType == 'Income') {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content:
+                            Text('Only Admin can add income transactions.')),
+                  );
+                  return;
+                }
+
                 final transaction = app.Transaction(
                   id: '',
                   title: title,
                   amount: amount,
                   category: selectedCategory,
-                  type: app.TransactionType.expense,
+                  type: selectedType == 'Income'
+                      ? app.TransactionType.income
+                      : app.TransactionType.expense,
                   date: DateTime.now(),
                   note: null,
                   createdBy: appState.currentUser!.uid,

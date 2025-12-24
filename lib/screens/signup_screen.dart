@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
-import '../utils/app_theme.dart';
 import 'main_screen.dart';
 
 class SignupScreen extends StatefulWidget {
-  const SignupScreen({super.key});
+  final bool isJoining;
+  const SignupScreen({super.key, this.isJoining = false});
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
@@ -18,6 +18,8 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _budgetController = TextEditingController(text: '50000');
+  final _inviteController = TextEditingController();
+  bool _isJoining = false;
   bool _isLoading = false;
   bool _obscurePassword = true;
 
@@ -28,6 +30,7 @@ class _SignupScreenState extends State<SignupScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _budgetController.dispose();
+    _inviteController.dispose();
     super.dispose();
   }
 
@@ -37,17 +40,36 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() => _isLoading = true);
 
     final appState = context.read<AppState>();
-    final budget = double.tryParse(_budgetController.text) ?? 50000;
+    final budget =
+        _isJoining ? 0.0 : (double.tryParse(_budgetController.text) ?? 50000);
     final error = await appState.signup(
       _nameController.text.trim(),
       _emailController.text.trim(),
       _passwordController.text,
       budget,
+      inviteCode: _isJoining
+          ? (_inviteController.text.trim().isEmpty
+              ? null
+              : _inviteController.text.trim())
+          : null,
     );
 
     setState(() => _isLoading = false);
 
-    if (error == null && mounted) {
+    if (!mounted) return;
+    if (error == null) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const MainScreen()),
+        (route) => false,
+      );
+    } else if (error == 'PENDING_JOIN') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Join request sent — waiting for admin approval'),
+          backgroundColor: Colors.orange,
+        ),
+      );
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const MainScreen()),
@@ -57,7 +79,7 @@ class _SignupScreenState extends State<SignupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Signup failed: $error'),
-          backgroundColor: Colors.red,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     }
@@ -65,13 +87,15 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    _isJoining = widget.isJoining;
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.colorScheme.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary),
+          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onBackground),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -85,26 +109,21 @@ class _SignupScreenState extends State<SignupScreen> {
               children: [
                 const SizedBox(height: 20),
 
-                // Title
-                const Text(
+                Text(
                   'Create Account',
-                  style: TextStyle(
-                    fontSize: 28,
+                  style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
+                    color: theme.colorScheme.onBackground,
                   ),
                 ),
-
                 const SizedBox(height: 8),
 
-                const Text(
+                Text(
                   'Start managing your household finances',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppTheme.textSecondary,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
-
                 const SizedBox(height: 32),
 
                 // Name Field
@@ -113,22 +132,17 @@ class _SignupScreenState extends State<SignupScreen> {
                   textCapitalization: TextCapitalization.words,
                   decoration: InputDecoration(
                     labelText: 'Full Name',
-                    hintText: 'Enter your name',
                     prefixIcon: const Icon(Icons.person_outlined),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: theme.colorScheme.surface,
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your name';
-                    }
-                    return null;
-                  },
+                  validator: (value) => (value == null || value.isEmpty)
+                      ? 'Please enter your name'
+                      : null,
                 ),
-
                 const SizedBox(height: 16),
 
                 // Email Field
@@ -137,25 +151,21 @@ class _SignupScreenState extends State<SignupScreen> {
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
                     labelText: 'Email',
-                    hintText: 'Enter your email',
                     prefixIcon: const Icon(Icons.email_outlined),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: theme.colorScheme.surface,
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
+                    if (value == null || value.isEmpty)
                       return 'Please enter your email';
-                    }
-                    if (!value.contains('@')) {
+                    if (!value.contains('@'))
                       return 'Please enter a valid email';
-                    }
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 16),
 
                 // Password Field
@@ -164,7 +174,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     labelText: 'Password',
-                    hintText: 'Create a password',
                     prefixIcon: const Icon(Icons.lock_outlined),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -172,27 +181,23 @@ class _SignupScreenState extends State<SignupScreen> {
                             ? Icons.visibility_off
                             : Icons.visibility,
                       ),
-                      onPressed: () {
-                        setState(() => _obscurePassword = !_obscurePassword);
-                      },
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: theme.colorScheme.surface,
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
+                    if (value == null || value.isEmpty)
                       return 'Please enter a password';
-                    }
-                    if (value.length < 6) {
+                    if (value.length < 6)
                       return 'Password must be at least 6 characters';
-                    }
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 16),
 
                 // Confirm Password Field
@@ -201,54 +206,68 @@ class _SignupScreenState extends State<SignupScreen> {
                   obscureText: true,
                   decoration: InputDecoration(
                     labelText: 'Confirm Password',
-                    hintText: 'Confirm your password',
                     prefixIcon: const Icon(Icons.lock_outlined),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: theme.colorScheme.surface,
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
+                    if (value == null || value.isEmpty)
                       return 'Please confirm your password';
-                    }
-                    if (value != _passwordController.text) {
+                    if (value != _passwordController.text)
                       return 'Passwords do not match';
-                    }
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 16),
 
                 // Monthly Budget Field
-                TextFormField(
-                  controller: _budgetController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'Monthly Budget',
-                    hintText: 'Enter your monthly budget',
-                    prefixIcon:
-                        const Icon(Icons.account_balance_wallet_outlined),
-                    prefixText: 'Rs. ',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                if (!_isJoining)
+                  TextFormField(
+                    controller: _budgetController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Monthly Budget',
+                      prefixIcon:
+                          const Icon(Icons.account_balance_wallet_outlined),
+                      prefixText: 'Rs. ',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                      fillColor: theme.colorScheme.surface,
                     ),
-                    filled: true,
-                    fillColor: Colors.white,
+                    validator: (value) {
+                      if (value == null || value.isEmpty)
+                        return 'Please enter a budget';
+                      if (double.tryParse(value) == null)
+                        return 'Please enter a valid amount';
+                      return null;
+                    },
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a budget';
-                    }
-                    if (double.tryParse(value) == null) {
-                      return 'Please enter a valid amount';
-                    }
-                    return null;
-                  },
-                ),
 
+                if (_isJoining) ...[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _inviteController,
+                    decoration: InputDecoration(
+                      labelText: 'Invite Code',
+                      prefixIcon: const Icon(Icons.key_outlined),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                      fillColor: theme.colorScheme.surface,
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty)
+                        return 'Please enter invite code';
+                      return null;
+                    },
+                  ),
+                ],
                 const SizedBox(height: 32),
 
                 // Sign Up Button
@@ -257,7 +276,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _signup,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
+                      backgroundColor: theme.colorScheme.primary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -271,61 +290,15 @@ class _SignupScreenState extends State<SignupScreen> {
                               strokeWidth: 2,
                             ),
                           )
-                        : const Text(
+                        : Text(
                             'Create Account',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                              color: theme.colorScheme.onPrimary,
                             ),
                           ),
                   ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Info Text
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.info_outline, color: AppTheme.primaryColor),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'A household will be created automatically. Share the invite code with family members to link accounts.',
-                          style: TextStyle(
-                            color: AppTheme.textSecondary,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Sign In Link
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      'Already have an account? ',
-                      style: TextStyle(color: AppTheme.textSecondary),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text(
-                        'Sign In',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),

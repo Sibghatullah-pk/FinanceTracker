@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../utils/app_theme.dart';
-import 'signup_screen.dart';
+import 'signup_choice_screen.dart';
 import 'main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -268,7 +268,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => const SignupScreen()),
+                              builder: (_) => const SignupChoiceScreen()),
                         );
                       },
                       child: const Text(

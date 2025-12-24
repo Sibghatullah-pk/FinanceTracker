@@ -169,55 +169,116 @@ class DashboardScreen extends StatelessWidget {
         ? (appState.totalSpent / appState.monthlyLimit).clamp(0.0, 1.0)
         : 0.0;
     final isOverBudget = appState.totalSpent > appState.monthlyLimit;
-
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.primary,
-            theme.colorScheme.primary.withOpacity(0.8),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.primary.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+    if (appState.isAdmin) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              theme.colorScheme.primary,
+              theme.colorScheme.primary.withOpacity(0.8),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: theme.colorScheme.primary.withOpacity(0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Monthly Budget',
+              style:
+                  theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Rs. ${appState.monthlyLimit.toStringAsFixed(0)}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 36,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: LinearProgressIndicator(
+                value: percentage,
+                minHeight: 8,
+                backgroundColor: Colors.white.withOpacity(0.3),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  isOverBudget ? theme.colorScheme.error : Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Spent',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: Colors.white70)),
+                    Text('Rs. ${appState.totalSpent.toStringAsFixed(0)}',
+                        style: const TextStyle(color: Colors.white)),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('Remaining',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: Colors.white70)),
+                    Text('Rs. ${appState.remaining.toStringAsFixed(0)}',
+                        style: const TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Contributor / non-admin view (read-only)
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Monthly Budget',
-            style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
-          ),
+          Text('Shared Monthly Budget', style: theme.textTheme.bodyMedium),
+          const SizedBox(height: 8),
+          Text('Rs. ${appState.monthlyLimit.toStringAsFixed(0)}',
+              style: theme.textTheme.headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          Text(
-            'Rs. ${appState.monthlyLimit.toStringAsFixed(0)}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 36,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 20),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
+          LinearProgressIndicator(
               value: percentage,
               minHeight: 8,
-              backgroundColor: Colors.white.withOpacity(0.3),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                isOverBudget ? theme.colorScheme.error : Colors.white,
-              ),
-            ),
-          ),
+              backgroundColor: theme.dividerColor,
+              valueColor: AlwaysStoppedAnimation<Color>(isOverBudget
+                  ? theme.colorScheme.error
+                  : theme.colorScheme.primary)),
+          const SizedBox(height: 8),
+          Text('Spent: Rs. ${appState.totalSpent.toStringAsFixed(0)}',
+              style: theme.textTheme.bodySmall),
+          Text('Remaining: Rs. ${appState.remaining.toStringAsFixed(0)}',
+              style: theme.textTheme.bodySmall),
         ],
       ),
     );
@@ -277,7 +338,8 @@ class DashboardScreen extends StatelessWidget {
         },
         leading: Icon(
           _getCategoryIcon(transaction.category),
-          color: isExpense ? theme.colorScheme.error : theme.colorScheme.secondary,
+          color:
+              isExpense ? theme.colorScheme.error : theme.colorScheme.secondary,
         ),
         title: Text(transaction.title),
         subtitle: Text(transaction.createdByName),
@@ -285,7 +347,9 @@ class DashboardScreen extends StatelessWidget {
           '${isExpense ? '-' : '+'}Rs. ${transaction.amount.toStringAsFixed(0)}',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: isExpense ? theme.colorScheme.error : theme.colorScheme.secondary,
+            color: isExpense
+                ? theme.colorScheme.error
+                : theme.colorScheme.secondary,
           ),
         ),
       ),

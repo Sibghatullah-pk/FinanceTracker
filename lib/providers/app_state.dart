@@ -1,7 +1,5 @@
-// lib/providers/app_state.dart
 import 'dart:io';
 import 'dart:math';
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,7 +7,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-
 import '../models/transaction.dart' as app;
 import '../models/user_model.dart';
 import '../models/household.dart';
@@ -17,6 +14,107 @@ import '../models/comment.dart';
 import '../models/savings_goal.dart';
 
 class AppState extends ChangeNotifier {
+  /// Returns 'success', 'invalid', 'full', or 'error'
+  Future<String> joinHouseholdWithReason(String inviteCode) async {
+    try {
+      final query = await _db
+          .collection('households')
+          .where('inviteCode', isEqualTo: inviteCode)
+          .get();
+      if (query.docs.isEmpty) {
+        debugPrint('Join household error: Invalid code');
+        return 'invalid';
+      }
+
+      final householdDoc = query.docs.first;
+      final householdId = householdDoc.id;
+      final data = householdDoc.data();
+      final List memberIds = data['memberIds'] ?? [];
+      if (memberIds.length >= 2) {
+        debugPrint('Join household error: Household full');
+        return 'full';
+      }
+
+      try {
+        await _db.collection('households').doc(householdId).update({
+          'memberIds': FieldValue.arrayUnion([_currentUser!.uid]),
+          'roles.${_currentUser!.uid}': 'contributor',
+        });
+
+        await _db.collection('users').doc(_currentUser!.uid).update({
+          'householdId': householdId,
+        });
+
+        await _loadHousehold(householdId);
+        await _loadTransactions();
+        await _loadGoals();
+        notifyListeners();
+        return 'success';
+      } on FirebaseException catch (e) {
+        debugPrint('Join household update failed: ${e.code} ${e.message}');
+        if (e.code == 'permission-denied') {
+          // Create join request instead
+          await _db.collection('join_requests').add({
+            'userId': _currentUser!.uid,
+            'name': _currentUser!.name,
+            'email': _currentUser!.email,
+            'householdId': householdId,
+            'inviteCode': inviteCode,
+            'status': 'pending',
+            'createdAt': Timestamp.now(),
+          });
+
+          // Update user doc with householdId so UI can show household context
+          await _db.collection('users').doc(_currentUser!.uid).update({
+            'householdId': householdId,
+          });
+
+          _currentUser = _currentUser!.copyWith(householdId: householdId);
+          await _loadHousehold(householdId);
+          await _loadTransactions();
+          await _loadGoals();
+          notifyListeners();
+          return 'pending';
+        }
+        return 'error';
+      }
+    } catch (e) {
+      debugPrint("Join household error: $e");
+      return 'error';
+    }
+  }
+
+  /// Creates a new household and assigns the current user as admin.
+  Future<bool> createHousehold({double monthlyBudget = 0}) async {
+    if (_currentUser == null) return false;
+    try {
+      final householdId = _db.collection('households').doc().id;
+      final inviteCode = _generateId(length: 6);
+      await _db.collection('households').doc(householdId).set({
+        'memberIds': [_currentUser!.uid],
+        'roles': {_currentUser!.uid: 'admin'},
+        'monthlyLimit': monthlyBudget,
+        'inviteCode': inviteCode,
+      });
+      await _db.collection('users').doc(_currentUser!.uid).update({
+        'householdId': householdId,
+      });
+      _household = Household(
+        id: householdId,
+        memberIds: [_currentUser!.uid],
+        roles: {_currentUser!.uid: 'admin'},
+        monthlyLimit: monthlyBudget,
+        inviteCode: inviteCode,
+      );
+      _householdMembers[_currentUser!.uid] = _currentUser!;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Create household error: $e');
+      return false;
+    }
+  }
+
   // Firebase
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -27,7 +125,8 @@ class AppState extends ChangeNotifier {
 
   // Caches
   final List<app.Transaction> _transactions = [];
-  final Map<String, List<Comment>> _comments = {}; // transactionId -> List<Comment>
+  final Map<String, List<Comment>> _comments =
+      {}; // transactionId -> List<Comment>
   final Map<String, UserModel> _householdMembers = {};
   final List<SavingsGoal> _goals = [];
 
@@ -59,7 +158,8 @@ class AppState extends ChangeNotifier {
   String _generateId({int length = 8}) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = Random();
-    return List.generate(length, (_) => chars[random.nextInt(chars.length)]).join();
+    return List.generate(length, (_) => chars[random.nextInt(chars.length)])
+        .join();
   }
 
   // ================= AUTH =================
@@ -95,50 +195,121 @@ class AppState extends ChangeNotifier {
     String name,
     String email,
     String password,
-    double monthlyBudget,
-  ) async {
+    double monthlyBudget, {
+    String? inviteCode,
+  }) async {
     try {
+      // If inviteCode provided, validate household exists and has space
+      String? targetHouseholdId;
+      if (inviteCode != null && inviteCode.trim().isNotEmpty) {
+        final q = await _db
+            .collection('households')
+            .where('inviteCode', isEqualTo: inviteCode.trim())
+            .get();
+        if (q.docs.isEmpty) return 'Invalid invite code';
+        final householdDoc = q.docs.first;
+        final data = householdDoc.data();
+        final List memberIds = data['memberIds'] ?? [];
+        if (memberIds.length >= 2) return 'Household is full';
+        targetHouseholdId = householdDoc.id;
+      }
+
       final result = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password.trim(),
       );
 
       final user = result.user!;
-      final householdId = _db.collection('households').doc().id;
-      final inviteCode = _generateId();
 
+      // Create user document
       await _db.collection('users').doc(user.uid).set({
         'uid': user.uid,
         'name': name,
         'email': email,
-        'householdId': householdId,
+        'householdId': targetHouseholdId,
         'monthlyBudget': monthlyBudget,
         'createdAt': Timestamp.now(),
       });
 
-      await _db.collection('households').doc(householdId).set({
-        'memberIds': [user.uid],
-        'roles': {user.uid: 'admin'},
-        'monthlyLimit': monthlyBudget,
-        'inviteCode': inviteCode,
-      });
+      if (targetHouseholdId != null) {
+        // Join existing household as contributor. If updating household is
+        // forbidden by security rules, create a join request instead.
+        try {
+          await _db.collection('households').doc(targetHouseholdId).update({
+            'memberIds': FieldValue.arrayUnion([user.uid]),
+            'roles.${user.uid}': 'contributor',
+          });
 
-      _currentUser = UserModel(
-        uid: user.uid,
-        name: name,
-        email: email,
-        householdId: householdId,
-      );
+          _currentUser = UserModel(
+            uid: user.uid,
+            name: name,
+            email: email,
+            householdId: targetHouseholdId,
+          );
 
-      _household = Household(
-        id: householdId,
-        memberIds: [user.uid],
-        roles: {user.uid: 'admin'},
-        monthlyLimit: monthlyBudget,
-        inviteCode: inviteCode,
-      );
+          await _loadHousehold(targetHouseholdId);
+        } on FirebaseException catch (e) {
+          if (e.code == 'permission-denied') {
+            // Create a join request document so the household admin can accept.
+            await _db.collection('join_requests').add({
+              'userId': user.uid,
+              'name': name,
+              'email': email,
+              'householdId': targetHouseholdId,
+              'inviteCode': inviteCode,
+              'status': 'pending',
+              'createdAt': Timestamp.now(),
+            });
 
-      _householdMembers[user.uid] = _currentUser!;
+            // Update user's householdId locally and in users collection so
+            // app shows the correct household context where possible.
+            await _db.collection('users').doc(user.uid).update({
+              'householdId': targetHouseholdId,
+            });
+
+            _currentUser = UserModel(
+              uid: user.uid,
+              name: name,
+              email: email,
+              householdId: targetHouseholdId,
+            );
+
+            // Load household data (the user may not yet be listed in members)
+            await _loadHousehold(targetHouseholdId);
+
+            // Indicate pending join to the caller
+            return 'PENDING_JOIN';
+          }
+          rethrow;
+        }
+      } else {
+        // Create new household and assign admin
+        final householdId = _db.collection('households').doc().id;
+        final newInvite = _generateId();
+        await _db.collection('households').doc(householdId).set({
+          'memberIds': [user.uid],
+          'roles': {user.uid: 'admin'},
+          'monthlyLimit': monthlyBudget,
+          'inviteCode': newInvite,
+        });
+
+        _currentUser = UserModel(
+          uid: user.uid,
+          name: name,
+          email: email,
+          householdId: householdId,
+        );
+
+        _household = Household(
+          id: householdId,
+          memberIds: [user.uid],
+          roles: {user.uid: 'admin'},
+          monthlyLimit: monthlyBudget,
+          inviteCode: newInvite,
+        );
+
+        _householdMembers[user.uid] = _currentUser!;
+      }
 
       notifyListeners();
       return null;
@@ -204,14 +375,23 @@ class AppState extends ChangeNotifier {
           .collection('households')
           .where('inviteCode', isEqualTo: inviteCode)
           .get();
-      if (query.docs.isEmpty) return false;
+      if (query.docs.isEmpty) {
+        debugPrint('Join household error: Invalid code');
+        return false;
+      }
 
       final householdDoc = query.docs.first;
       final householdId = householdDoc.id;
+      final data = householdDoc.data();
+      final List memberIds = data['memberIds'] ?? [];
+      if (memberIds.length >= 2) {
+        debugPrint('Join household error: Household full');
+        return false;
+      }
 
       await _db.collection('households').doc(householdId).update({
         'memberIds': FieldValue.arrayUnion([_currentUser!.uid]),
-        'roles.${_currentUser!.uid}': 'member',
+        'roles.${_currentUser!.uid}': 'contributor',
       });
 
       await _db.collection('users').doc(_currentUser!.uid).update({
@@ -230,7 +410,69 @@ class AppState extends ChangeNotifier {
   }
 
   void leaveHousehold() {
-    // TODO: implement leave logic when needed
+    if (_currentUser == null || _household == null) return;
+    final userId = _currentUser!.uid;
+    final householdId = _household!.id;
+    // Remove user from household's memberIds and roles
+    _db.collection('households').doc(householdId).update({
+      'memberIds': FieldValue.arrayRemove([userId]),
+      'roles.$userId': FieldValue.delete(),
+    });
+    // Remove householdId from user
+    _db.collection('users').doc(userId).update({
+      'householdId': FieldValue.delete(),
+    });
+    // If admin leaves, optionally delete household or transfer admin (not handled here)
+    _household = null;
+    _transactions.clear();
+    _householdMembers.clear();
+    notifyListeners();
+  }
+
+  /// Admin: accept a pending join request and add user to household
+  Future<bool> acceptJoinRequest(
+      String requestId, String userId, String householdId) async {
+    try {
+      final householdRef = _db.collection('households').doc(householdId);
+      await householdRef.update({
+        'memberIds': FieldValue.arrayUnion([userId]),
+        'roles.$userId': 'contributor',
+      });
+      await _db
+          .collection('users')
+          .doc(userId)
+          .update({'householdId': householdId});
+      await _db.collection('join_requests').doc(requestId).update({
+        'status': 'accepted',
+        'handledAt': Timestamp.now(),
+      });
+      await _loadHousehold(householdId);
+      notifyListeners();
+      return true;
+    } on FirebaseException catch (e) {
+      debugPrint('acceptJoinRequest failed: $e');
+      return false;
+    }
+  }
+
+  /// Admin: reject a pending join request (marks as rejected or deletes)
+  Future<bool> rejectJoinRequest(String requestId) async {
+    try {
+      await _db.collection('join_requests').doc(requestId).update({
+        'status': 'rejected',
+        'handledAt': Timestamp.now(),
+      });
+      return true;
+    } on FirebaseException catch (e) {
+      debugPrint('rejectJoinRequest failed: $e');
+      try {
+        await _db.collection('join_requests').doc(requestId).delete();
+        return true;
+      } catch (e2) {
+        debugPrint('rejectJoinRequest delete fallback failed: $e2');
+      }
+      return false;
+    }
   }
 
   // ================= TRANSACTIONS =================
@@ -281,7 +523,8 @@ class AppState extends ChangeNotifier {
   }
 
   // ================= COMMENTS =================
-  List<Comment> getComments(String transactionId) => _comments[transactionId] ?? [];
+  List<Comment> getComments(String transactionId) =>
+      _comments[transactionId] ?? [];
 
   Future<void> loadComments(String transactionId) async {
     if (_household == null) return;
@@ -294,7 +537,8 @@ class AppState extends ChangeNotifier {
         .orderBy('timestamp', descending: false)
         .get();
 
-    final list = snap.docs.map((d) => Comment.fromJson(d.id, d.data())).toList();
+    final list =
+        snap.docs.map((d) => Comment.fromJson(d.id, d.data())).toList();
     _comments[transactionId] = list;
     notifyListeners();
   }
@@ -537,6 +781,24 @@ class AppState extends ChangeNotifier {
           (categoryBreakdown[t.category] ?? 0) + t.amount;
     }
 
+    // Per-user summary
+    final userSummary =
+        <String, Map<String, double>>{}; // uid -> {income, expense}
+    for (final t in txns) {
+      final uid = t.createdBy;
+      userSummary.putIfAbsent(uid, () => {'income': 0.0, 'expense': 0.0});
+      if (t.type == app.TransactionType.income) {
+        userSummary[uid]!['income'] = userSummary[uid]!['income']! + t.amount;
+      } else {
+        userSummary[uid]!['expense'] = userSummary[uid]!['expense']! + t.amount;
+      }
+    }
+    // Get user names
+    final userNames = <String, String>{};
+    for (final member in _householdMembers.values) {
+      userNames[member.uid] = member.name;
+    }
+
     final pdf = pw.Document();
     pdf.addPage(
       pw.Page(
@@ -544,13 +806,15 @@ class AppState extends ChangeNotifier {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             pw.Text('Monthly Financial Report',
-                style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+                style:
+                    pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
             pw.Text('Month: $month/$year', style: pw.TextStyle(fontSize: 16)),
             pw.Text('Household Code: ${_household!.inviteCode}',
                 style: pw.TextStyle(fontSize: 16)),
             pw.SizedBox(height: 20),
             pw.Text('Summary',
-                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                style:
+                    pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 10),
             pw.Table.fromTextArray(
               headers: ['Metric', 'Amount'],
@@ -558,13 +822,39 @@ class AppState extends ChangeNotifier {
                 ['Total Budget', 'Rs. ${monthlyLimit.toStringAsFixed(2)}'],
                 ['Total Income', 'Rs. ${totalIncome.toStringAsFixed(2)}'],
                 ['Total Expenses', 'Rs. ${totalExpenses.toStringAsFixed(2)}'],
-                ['Remaining Budget', 'Rs. ${remainingBudget.toStringAsFixed(2)}'],
-                ['Balance (Income - Expense)', 'Rs. ${balance.toStringAsFixed(2)}'],
+                [
+                  'Remaining Budget',
+                  'Rs. ${remainingBudget.toStringAsFixed(2)}'
+                ],
+                [
+                  'Balance (Income - Expense)',
+                  'Rs. ${balance.toStringAsFixed(2)}'
+                ],
               ],
             ),
             pw.SizedBox(height: 20),
+            pw.Text('Contributors Breakdown',
+                style:
+                    pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 10),
+            pw.Table.fromTextArray(
+              headers: ['Name', 'Role', 'Income', 'Expense'],
+              data: userSummary.entries.map((e) {
+                final uid = e.key;
+                final name = userNames[uid] ?? uid;
+                final role = _household!.roles[uid] ?? '';
+                return [
+                  name,
+                  role[0].toUpperCase() + role.substring(1),
+                  'Rs. ${e.value['income']!.toStringAsFixed(2)}',
+                  'Rs. ${e.value['expense']!.toStringAsFixed(2)}',
+                ];
+              }).toList(),
+            ),
+            pw.SizedBox(height: 20),
             pw.Text('Spending by Category',
-                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                style:
+                    pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 10),
             pw.Table.fromTextArray(
               headers: ['Category', 'Amount'],
@@ -574,17 +864,21 @@ class AppState extends ChangeNotifier {
             ),
             pw.SizedBox(height: 20),
             pw.Text('All Transactions',
-                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                style:
+                    pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 10),
             pw.Table.fromTextArray(
-              headers: ['Date', 'Title', 'Category', 'Type', 'Amount'],
+              headers: ['Date', 'Title', 'Category', 'Type', 'Amount', 'By'],
               data: txns
                   .map((t) => [
                         t.date.toString().split(' ').first,
                         t.title,
                         t.category,
-                        t.type == app.TransactionType.expense ? 'Expense' : 'Income',
+                        t.type == app.TransactionType.expense
+                            ? 'Expense'
+                            : 'Income',
                         'Rs. ${t.amount.toStringAsFixed(2)}',
+                        userNames[t.createdBy] ?? t.createdBy,
                       ])
                   .toList(),
             ),
@@ -613,7 +907,8 @@ class AppState extends ChangeNotifier {
     await file.writeAsBytes(bytes, flush: true);
 
     try {
-      await Printing.sharePdf(bytes: bytes, filename: 'monthly_report_${month}_$year.pdf');
+      await Printing.sharePdf(
+          bytes: bytes, filename: 'monthly_report_${month}_$year.pdf');
     } catch (_) {}
   }
 

@@ -161,7 +161,7 @@ households/
 - [ ] Savings goals feature
 - [ ] Dark mode theme
 - [ ] Ai for predictions
-- [ ] Goals,analysis,Summary add krna
+- [ ] Goals,analysis,Summary (report) add krna
 - [ ] Bills
 
 ## 👨‍💻 Author

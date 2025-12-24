@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import 'login_screen.dart';
 import 'join_household_screen.dart';
+import 'join_requests_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -53,36 +54,41 @@ class SettingsScreen extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(appState.currentUser?.name ?? 'User',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  )),
+                              Row(
+                                children: [
+                                  Text(appState.currentUser?.name ?? 'User',
+                                      style:
+                                          theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      )),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: appState.isAdmin
+                                          ? Colors.green[100]
+                                          : Colors.blue[100],
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      appState.isAdmin
+                                          ? 'ADMIN'
+                                          : 'CONTRIBUTOR',
+                                      style: TextStyle(
+                                        color: appState.isAdmin
+                                            ? Colors.green[800]
+                                            : Colors.blue[800],
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                               const SizedBox(height: 4),
                               Text(appState.currentUser?.email ?? '',
                                   style: theme.textTheme.bodySmall),
-                              const SizedBox(height: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: appState.isAdmin
-                                      ? theme.colorScheme.primary
-                                          .withOpacity(0.1)
-                                      : theme.colorScheme.secondary
-                                          .withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  appState.isAdmin ? 'Admin' : 'Contributor',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: appState.isAdmin
-                                        ? theme.colorScheme.primary
-                                        : theme.colorScheme.secondary,
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
                         ),
@@ -90,6 +96,19 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (!appState.isAdmin)
+                  Card(
+                    color: Colors.blue[50],
+                    child: ListTile(
+                      leading:
+                          const Icon(Icons.info_outline, color: Colors.blue),
+                      title: const Text('Contributor Permissions'),
+                      subtitle: const Text(
+                        'You can add expenses and comments. Only the admin can add income, edit budget, or delete transactions.',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  ),
 
                 const SizedBox(height: 24),
 
@@ -138,8 +157,8 @@ class SettingsScreen extends StatelessWidget {
                                     ),
                                     child: Text(
                                       appState.household?.inviteCode ?? '',
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
+                                      style:
+                                          theme.textTheme.titleMedium?.copyWith(
                                         fontWeight: FontWeight.bold,
                                         letterSpacing: 2,
                                       ),
@@ -150,7 +169,8 @@ class SettingsScreen extends StatelessWidget {
                                 IconButton(
                                   onPressed: () {
                                     Clipboard.setData(ClipboardData(
-                                      text: appState.household?.inviteCode ?? '',
+                                      text:
+                                          appState.household?.inviteCode ?? '',
                                     ));
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
@@ -178,11 +198,31 @@ class SettingsScreen extends StatelessWidget {
                     child: ListTile(
                       leading: const Icon(Icons.people),
                       title: const Text('Household Members'),
-                      subtitle:
-                          Text('${appState.members.length} members'),
+                      subtitle: Text('${appState.members.length} members'),
                       onTap: () => _showMembersDialog(context, appState),
                     ),
                   ),
+
+                  const SizedBox(height: 12),
+
+                  // Join requests (Admin only)
+                  if (appState.isAdmin)
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.how_to_reg),
+                        title: const Text('Join Requests'),
+                        subtitle:
+                            const Text('View and accept pending requests'),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const JoinRequestsScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
 
                   const SizedBox(height: 12),
 
@@ -231,8 +271,7 @@ class SettingsScreen extends StatelessWidget {
                       ListTile(
                         leading: const Icon(Icons.notifications),
                         title: const Text('Notifications'),
-                        subtitle:
-                            const Text('Manage notification preferences'),
+                        subtitle: const Text('Manage notification preferences'),
                         onTap: () {},
                       ),
                       const Divider(height: 1),
@@ -263,14 +302,14 @@ class SettingsScreen extends StatelessWidget {
                           leading: Icon(Icons.exit_to_app,
                               color: theme.colorScheme.error),
                           title: const Text('Leave Household'),
-                          subtitle: const Text(
-                              'Remove yourself from the household'),
+                          subtitle:
+                              const Text('Remove yourself from the household'),
                           onTap: () => _showLeaveDialog(context, appState),
                         ),
                       if (appState.hasHousehold) const Divider(height: 1),
                       ListTile(
-                        leading: Icon(Icons.logout,
-                            color: theme.colorScheme.error),
+                        leading:
+                            Icon(Icons.logout, color: theme.colorScheme.error),
                         title: const Text('Sign Out'),
                         subtitle: const Text('Sign out of your account'),
                         onTap: () => _showLogoutDialog(context, appState),

@@ -23,21 +23,32 @@ class StatisticsScreen extends StatelessWidget {
           double totalIncome = 0;
           double totalExpense = 0;
           Map<String, double> categorySpending = {};
-
+          double largestExpense = 0;
+          double largestIncome = 0;
+          String topCategory = '';
           for (var t in appState.transactions) {
             if (t.type == TransactionType.income) {
               totalIncome += t.amount;
+              if (t.amount > largestIncome) largestIncome = t.amount;
             } else {
               totalExpense += t.amount;
               categorySpending[t.category] =
                   (categorySpending[t.category] ?? 0) + t.amount;
+              if (t.amount > largestExpense) largestExpense = t.amount;
             }
           }
-
+          if (categorySpending.isNotEmpty) {
+            topCategory = categorySpending.entries
+                .reduce((a, b) => a.value > b.value ? a : b)
+                .key;
+          }
           final balance = totalIncome - totalExpense;
           final maxCategoryAmount = categorySpending.isEmpty
               ? 1.0
               : categorySpending.values.reduce((a, b) => a > b ? a : b);
+          final savingsRate = totalIncome > 0
+              ? ((totalIncome - totalExpense) / totalIncome) * 100
+              : 0;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -45,6 +56,67 @@ class StatisticsScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Month Selector
+                // Quick Stats
+                Card(
+                  color: theme.colorScheme.primary.withOpacity(0.07),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Column(
+                          children: [
+                            const Icon(Icons.trending_up, color: Colors.green),
+                            const SizedBox(height: 4),
+                            Text('Savings Rate',
+                                style: theme.textTheme.bodySmall),
+                            Text('${savingsRate.toStringAsFixed(1)}%',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green)),
+                          ],
+                        ),
+                        Column(
+                          children: [
+                            const Icon(Icons.category, color: Colors.blue),
+                            const SizedBox(height: 4),
+                            Text('Top Category',
+                                style: theme.textTheme.bodySmall),
+                            Text(topCategory.isNotEmpty ? topCategory : '-',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue)),
+                          ],
+                        ),
+                        Column(
+                          children: [
+                            const Icon(Icons.attach_money, color: Colors.red),
+                            const SizedBox(height: 4),
+                            Text('Largest Expense',
+                                style: theme.textTheme.bodySmall),
+                            Text('Rs. ${largestExpense.toStringAsFixed(0)}',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.red)),
+                          ],
+                        ),
+                        Column(
+                          children: [
+                            const Icon(Icons.account_balance_wallet,
+                                color: Colors.teal),
+                            const SizedBox(height: 4),
+                            Text('Largest Income',
+                                style: theme.textTheme.bodySmall),
+                            Text('Rs. ${largestIncome.toStringAsFixed(0)}',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.teal)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -102,9 +174,9 @@ class StatisticsScreen extends StatelessWidget {
                           ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: LinearProgressIndicator(
-                              value: (appState.totalSpent /
-                                      appState.monthlyLimit)
-                                  .clamp(0.0, 1.0),
+                              value:
+                                  (appState.totalSpent / appState.monthlyLimit)
+                                      .clamp(0.0, 1.0),
                               minHeight: 12,
                               backgroundColor: theme.dividerColor,
                               valueColor: AlwaysStoppedAnimation<Color>(
@@ -271,8 +343,8 @@ class StatisticsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCategoryBar(
-      BuildContext context, String category, double amount, double total, Color color) {
+  Widget _buildCategoryBar(BuildContext context, String category, double amount,
+      double total, Color color) {
     final theme = Theme.of(context);
     final percentage = (amount / total).clamp(0.0, 1.0);
     return Column(
