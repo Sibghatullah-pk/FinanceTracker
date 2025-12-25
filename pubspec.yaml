@@ -28,6 +28,7 @@ dependencies:
   # 📲 Push Notifications
   firebase_messaging: ^16.1.0
   http: ^1.2.2
+  flutter_dotenv: ^6.0.0
 
   # 📄 PDF Generation & Printing
   pdf: ^3.10.7

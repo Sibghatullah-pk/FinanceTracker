@@ -35,8 +35,8 @@ class BudgetScreen extends StatelessWidget {
       ),
     ];
 
-    final totalBudget = budgets.fold(0.0, (sum, b) => sum + b.amount);
-    final totalSpent = budgets.fold(0.0, (sum, b) => sum + b.spent);
+    final totalBudget = budgets.fold(0.0, (acc, b) => acc + b.amount);
+    final totalSpent = budgets.fold(0.0, (acc, b) => acc + b.spent);
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,

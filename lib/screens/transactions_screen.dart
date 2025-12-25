@@ -171,8 +171,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           height: 48,
           decoration: BoxDecoration(
             color: isExpense
-                ? theme.colorScheme.error.withOpacity(0.1)
-                : theme.colorScheme.secondary.withOpacity(0.1),
+                ? theme.colorScheme.error.withAlpha((0.1 * 255).round())
+                : theme.colorScheme.secondary.withAlpha((0.1 * 255).round()),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
@@ -247,7 +247,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   }
 
   void _showAddExpenseDialog(BuildContext context) {
-    final theme = Theme.of(context);
+    // theme not used here; keep context usage local
     final titleController = TextEditingController();
     final amountController = TextEditingController();
     String selectedCategory = 'Food & Dining';

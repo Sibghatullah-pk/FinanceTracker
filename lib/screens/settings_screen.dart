@@ -35,8 +35,8 @@ class SettingsScreen extends StatelessWidget {
                       children: [
                         CircleAvatar(
                           radius: 32,
-                          backgroundColor:
-                              theme.colorScheme.primary.withOpacity(0.1),
+                          backgroundColor: theme.colorScheme.primary
+                              .withAlpha((0.1 * 255).round()),
                           child: Text(
                             appState.currentUser?.name
                                     .substring(0, 1)
@@ -99,11 +99,10 @@ class SettingsScreen extends StatelessWidget {
                 if (!appState.isAdmin)
                   Card(
                     color: Colors.blue[50],
-                    child: ListTile(
-                      leading:
-                          const Icon(Icons.info_outline, color: Colors.blue),
-                      title: const Text('Contributor Permissions'),
-                      subtitle: const Text(
+                    child: const ListTile(
+                      leading: Icon(Icons.info_outline, color: Colors.blue),
+                      title: Text('Contributor Permissions'),
+                      subtitle: Text(
                         'You can add expenses and comments. Only the admin can add income, edit budget, or delete transactions.',
                         style: TextStyle(fontSize: 13),
                       ),
@@ -340,8 +339,10 @@ class SettingsScreen extends StatelessWidget {
                   appState.household?.roles[member.uid] ?? 'contributor';
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor:
-                      Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  backgroundColor: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withAlpha((0.1 * 255).round()),
                   child: Text(
                     member.name.substring(0, 1).toUpperCase(),
                     style: TextStyle(

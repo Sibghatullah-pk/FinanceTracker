@@ -91,7 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Login"),
+        title: const Text('Login'),
         actions: [
           IconButton(
             icon: const Icon(Icons.brightness_6),
@@ -112,7 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    color: AppTheme.primaryColor.withAlpha((0.1 * 255).round()),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(

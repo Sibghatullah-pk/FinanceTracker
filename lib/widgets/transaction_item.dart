@@ -23,8 +23,8 @@ class TransactionItem extends StatelessWidget {
           height: 50,
           decoration: BoxDecoration(
             color: isIncome
-                ? AppTheme.successColor.withOpacity(0.1)
-                : AppTheme.primaryColor.withOpacity(0.1),
+                ? AppTheme.successColor.withAlpha((0.1 * 255).round())
+                : AppTheme.primaryColor.withAlpha((0.1 * 255).round()),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
@@ -38,7 +38,7 @@ class TransactionItem extends StatelessWidget {
         ),
         subtitle: Text(
           '${transaction.category} • ${FormatHelper.formatDateShort(transaction.date)}',
-          style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
         ),
         trailing: Text(
           '${isIncome ? '+' : '-'} ${FormatHelper.formatCurrency(transaction.amount)}',

@@ -35,10 +35,10 @@ class GoalsListScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(16),
                   child: BarChart(
                     BarChartData(
-                      gridData: FlGridData(show: false),
+                      gridData: const FlGridData(show: false),
                       borderData: FlBorderData(show: false),
                       titlesData: FlTitlesData(
-                        leftTitles: AxisTitles(
+                        leftTitles: const AxisTitles(
                           sideTitles: SideTitles(showTitles: true),
                         ),
                         bottomTitles: AxisTitles(

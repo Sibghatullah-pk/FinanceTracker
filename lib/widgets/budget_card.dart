@@ -49,7 +49,7 @@ class BudgetCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 '${FormatHelper.formatCurrency(budget.spent)} of ${FormatHelper.formatCurrency(budget.amount)}',
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 12),
               ClipRRect(

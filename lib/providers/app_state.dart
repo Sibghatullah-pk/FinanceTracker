@@ -13,6 +13,7 @@ import '../models/user_model.dart';
 import '../models/household.dart';
 import '../models/comment.dart';
 import '../models/savings_goal.dart';
+import '../services/openai_service.dart';
 
 class AppState extends ChangeNotifier {
   /// Returns 'success', 'invalid', 'full', or 'error'
@@ -29,7 +30,6 @@ class AppState extends ChangeNotifier {
 
       final householdDoc = query.docs.first;
       final householdId = householdDoc.id;
-      final data = householdDoc.data();
       // No member limit now
 
       try {
@@ -78,7 +78,7 @@ class AppState extends ChangeNotifier {
         return 'error';
       }
     } catch (e) {
-      debugPrint("Join household error: $e");
+      debugPrint('Join household error: $e');
       return 'error';
     }
   }
@@ -158,17 +158,47 @@ class AppState extends ChangeNotifier {
 
   double get totalSpent => _transactions
       .where((t) => t.type == app.TransactionType.expense)
-      .fold(0.0, (sum, t) => sum + t.amount);
+      .fold(0.0, (acc, t) => acc + t.amount);
 
   double get totalIncome => _transactions
       .where((t) => t.type == app.TransactionType.income)
-      .fold(0.0, (sum, t) => sum + t.amount);
+      .fold(0.0, (acc, t) => acc + t.amount);
 
   double get monthlyLimit => _household?.monthlyLimit ?? 0;
   double get remaining => monthlyLimit - totalSpent;
   double get balance => totalIncome - totalSpent;
 
   List<UserModel> get members => _householdMembers.values.toList();
+
+  // Aggregations for charts
+  double get totalExpenses => _transactions
+      .where((t) => t.type == app.TransactionType.expense)
+      .fold(0.0, (s, t) => s + t.amount);
+
+  double get totalIncomes => _transactions
+      .where((t) => t.type == app.TransactionType.income)
+      .fold(0.0, (s, t) => s + t.amount);
+
+  /// Category -> total amount (expenses only)
+  Map<String, double> get categoryTotals {
+    final Map<String, double> map = {};
+    for (final t in _transactions) {
+      if (t.type != app.TransactionType.expense) continue;
+      map[t.category] = (map[t.category] ?? 0) + t.amount;
+    }
+    return map;
+  }
+
+  /// Member contributions map: userId -> net amount (income positive, expense negative)
+  Map<String, double> get memberContributions {
+    final Map<String, double> map = {};
+    for (final t in _transactions) {
+      final id = t.createdBy;
+      final delta = t.type == app.TransactionType.income ? t.amount : -t.amount;
+      map[id] = (map[id] ?? 0) + delta;
+    }
+    return map;
+  }
 
   // ================= HELPERS =================
   String _generateId({int length = 8}) {
@@ -203,7 +233,7 @@ class AppState extends ChangeNotifier {
 
       final user = result.user!;
       final userDoc = await _db.collection('users').doc(user.uid).get();
-      if (!userDoc.exists) return "User document not found";
+      if (!userDoc.exists) return 'User document not found';
 
       _currentUser = UserModel.fromJson(user.uid, userDoc.data()!);
 
@@ -387,6 +417,7 @@ class AppState extends ChangeNotifier {
   }
 
   // ================= HOUSEHOLD =================
+  // ignore: unused_element
   Future<void> _loadHousehold(String householdId) async {
     final doc = await _db.collection('households').doc(householdId).get();
     if (!doc.exists) return;
@@ -460,7 +491,7 @@ class AppState extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint("Join household error: $e");
+      debugPrint('Join household error: $e');
       return false;
     }
   }
@@ -614,7 +645,7 @@ class AppState extends ChangeNotifier {
         final pendingId = 'pending-${DateTime.now().millisecondsSinceEpoch}';
         final pending = enriched.copyWith(
           id: pendingId,
-          note: (enriched.note ?? '') + ' (Pending approval)',
+          note: '${enriched.note ?? ''} (Pending approval)',
         );
         _transactions.add(pending);
         notifyListeners();
@@ -773,6 +804,75 @@ class AppState extends ChangeNotifier {
       ..clear()
       ..addAll(snap.docs.map((d) => SavingsGoal.fromMap(d.id, d.data())));
     notifyListeners();
+  }
+
+  // ================= AI INSIGHTS =================
+  /// Request AI-driven advisory insight for the household.
+  /// Returns the assistant text or throws on error.
+  Future<String> requestAIPrediction({bool store = true}) async {
+    if (_household == null) throw StateError('Not in a household');
+    if (!OpenAIService.instance.isConfigured) {
+      throw StateError('OpenAI API key not configured');
+    }
+
+    // Build prompt from household state and recent transactions
+    final buffer = StringBuffer();
+    buffer.writeln('You are a helpful financial assistant.');
+    buffer.writeln('Household monthly budget: Rs. ${_household!.monthlyLimit}');
+    buffer.writeln('Total income: Rs. ${totalIncome.toStringAsFixed(2)}');
+    buffer.writeln('Total expenses: Rs. ${totalSpent.toStringAsFixed(2)}');
+    buffer.writeln('Remaining: Rs. ${remaining.toStringAsFixed(2)}');
+    buffer.writeln('\nCategory breakdown:');
+    categoryTotals.forEach((k, v) {
+      buffer.writeln('- $k: Rs. ${v.toStringAsFixed(2)}');
+    });
+
+    buffer.writeln('\nRecent transactions (most recent first):');
+    for (final t in _transactions.take(10)) {
+      buffer.writeln(
+          '- ${t.date.toIso8601String()} | ${t.title} | ${t.category} | ${t.type == app.TransactionType.expense ? 'Expense' : 'Income'} | Rs. ${t.amount.toStringAsFixed(2)} | by ${t.createdByName}');
+    }
+
+    buffer.writeln(
+        '\nPlease provide:\n1) A short summary of the household financial status.\n2) Top 3 actionable suggestions to improve budget or reduce expenses.\n3) A simple 3-point projection for next month (spend/income) based on recent trends.');
+
+    final prompt = buffer.toString();
+
+    final result = await OpenAIService.instance.chat(prompt);
+
+    if (store) {
+      try {
+        final doc = await _db
+            .collection('households')
+            .doc(_household!.id)
+            .collection('ai_insights')
+            .add({
+          'text': result,
+          'createdAt': Timestamp.now(),
+          'source': 'manual',
+        });
+        debugPrint(
+            '[AI] Stored insight ${doc.id} for household ${_household!.id}');
+      } catch (e) {
+        debugPrint('[AI] Failed to store insight: $e');
+      }
+    }
+
+    return result;
+  }
+
+  /// Fetch the latest AI insight for the current household (or null)
+  Future<String?> fetchLatestAIPrediction() async {
+    if (_household == null) return null;
+    final snap = await _db
+        .collection('households')
+        .doc(_household!.id)
+        .collection('ai_insights')
+        .orderBy('createdAt', descending: true)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    return snap.docs.first.data()['text'] as String?;
   }
 
   Future<String?> createGoal({
@@ -947,11 +1047,11 @@ class AppState extends ChangeNotifier {
 
     final totalExpenses = txns
         .where((t) => t.type == app.TransactionType.expense)
-        .fold(0.0, (sum, t) => sum + t.amount);
+        .fold(0.0, (acc, t) => acc + t.amount);
 
     final totalIncome = txns
         .where((t) => t.type == app.TransactionType.income)
-        .fold(0.0, (sum, t) => sum + t.amount);
+        .fold(0.0, (acc, t) => acc + t.amount);
 
     final balance = totalIncome - totalExpenses;
     final remainingBudget = monthlyLimit - totalExpenses;
@@ -989,15 +1089,16 @@ class AppState extends ChangeNotifier {
             pw.Text('Monthly Financial Report',
                 style:
                     pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-            pw.Text('Month: $month/$year', style: pw.TextStyle(fontSize: 16)),
+            pw.Text('Month: $month/$year',
+                style: const pw.TextStyle(fontSize: 16)),
             pw.Text('Household Code: ${_household!.inviteCode}',
-                style: pw.TextStyle(fontSize: 16)),
+                style: const pw.TextStyle(fontSize: 16)),
             pw.SizedBox(height: 20),
             pw.Text('Summary',
                 style:
                     pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 10),
-            pw.Table.fromTextArray(
+            pw.TableHelper.fromTextArray(
               headers: ['Metric', 'Amount'],
               data: [
                 ['Total Budget', 'Rs. ${monthlyLimit.toStringAsFixed(2)}'],
@@ -1018,7 +1119,7 @@ class AppState extends ChangeNotifier {
                 style:
                     pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 10),
-            pw.Table.fromTextArray(
+            pw.TableHelper.fromTextArray(
               headers: ['Name', 'Role', 'Income', 'Expense'],
               data: userSummary.entries.map((e) {
                 final uid = e.key;
@@ -1037,7 +1138,7 @@ class AppState extends ChangeNotifier {
                 style:
                     pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 10),
-            pw.Table.fromTextArray(
+            pw.TableHelper.fromTextArray(
               headers: ['Category', 'Amount'],
               data: categoryBreakdown.entries
                   .map((e) => [e.key, 'Rs. ${e.value.toStringAsFixed(2)}'])
@@ -1048,7 +1149,7 @@ class AppState extends ChangeNotifier {
                 style:
                     pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 10),
-            pw.Table.fromTextArray(
+            pw.TableHelper.fromTextArray(
               headers: ['Date', 'Title', 'Category', 'Type', 'Amount', 'By'],
               data: txns
                   .map((t) => [
@@ -1139,7 +1240,7 @@ class AppState extends ChangeNotifier {
         }
       }
       debugPrint(
-          '[Household Listener] Members: ' + _householdMembers.keys.join(", "));
+          '[Household Listener] Members: ${_householdMembers.keys.join(", ")}');
       notifyListeners();
     });
   }

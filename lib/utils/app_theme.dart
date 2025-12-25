@@ -26,7 +26,6 @@ class AppTheme {
       secondary: secondaryColor,
       error: errorColor,
       surface: cardColor,
-      background: backgroundColor,
     ),
     appBarTheme: const AppBarTheme(
       elevation: 0,
@@ -43,7 +42,7 @@ class AppTheme {
       bodyLarge: TextStyle(color: textPrimary, fontFamily: 'Inter'),
       bodyMedium: TextStyle(color: textSecondary, fontFamily: 'Inter'),
     ),
-    cardTheme: CardThemeData(
+    cardTheme: const CardThemeData(
       color: cardColor,
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
@@ -79,8 +78,7 @@ class AppTheme {
       primary: primaryColor,
       secondary: secondaryColor,
       error: errorColor,
-      surface: Color(0xFF1F2937), // Dark card
-      background: Colors.black,
+      surface: Color(0xFF1F2937),
     ),
     appBarTheme: const AppBarTheme(
       elevation: 0,

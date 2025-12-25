@@ -35,8 +35,9 @@ class _MainScreenState extends State<MainScreen> {
           _screens[_selectedIndex],
           Consumer<AppState?>(
             builder: (context, appState, _) {
-              if (!(appState?.isSyncing ?? false))
+              if (!(appState?.isSyncing ?? false)) {
                 return const SizedBox.shrink();
+              }
               return Positioned.fill(
                 child: Container(
                   color: Colors.black45,

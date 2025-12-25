@@ -70,7 +70,8 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
             builder: (context, appState, child) {
               if (appState.isAdmin) {
                 return IconButton(
-                  icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+                  icon: Icon(Icons.delete_outline,
+                      color: theme.colorScheme.error),
                   onPressed: () => _showDeleteDialog(context, appState),
                 );
               }
@@ -101,7 +102,7 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
                               color: (isExpense
                                       ? theme.colorScheme.error
                                       : theme.colorScheme.secondary)
-                                  .withOpacity(0.12),
+                                  .withAlpha((0.12 * 255).round()),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
@@ -132,7 +133,6 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
                           const SizedBox(height: 20),
                           const Divider(),
                           const SizedBox(height: 16),
-
                           _buildDetailRow(
                             context,
                             'Category',
@@ -244,7 +244,7 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
               color: theme.colorScheme.surface,
               boxShadow: [
                 BoxShadow(
-                  color: theme.shadowColor.withOpacity(0.07),
+                  color: theme.shadowColor.withAlpha((0.07 * 255).round()),
                   blurRadius: 10,
                   offset: const Offset(0, -5),
                 ),
@@ -331,10 +331,9 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: (isMe
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.secondary)
-                .withOpacity(0.12),
+            backgroundColor:
+                (isMe ? theme.colorScheme.primary : theme.colorScheme.secondary)
+                    .withOpacity(0.12),
             child: Text(
               comment.userName.substring(0, 1).toUpperCase(),
               style: TextStyle(

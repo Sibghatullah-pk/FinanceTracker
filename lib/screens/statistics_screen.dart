@@ -58,7 +58,8 @@ class StatisticsScreen extends StatelessWidget {
                 // Month Selector
                 // Quick Stats
                 Card(
-                  color: theme.colorScheme.primary.withOpacity(0.07),
+                  color:
+                      theme.colorScheme.primary.withAlpha((0.07 * 255).round()),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Row(

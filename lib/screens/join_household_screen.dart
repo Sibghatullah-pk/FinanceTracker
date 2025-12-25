@@ -96,7 +96,7 @@ class _JoinHouseholdScreenState extends State<JoinHouseholdScreen> {
             Container(
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
+                color: AppTheme.primaryColor.withAlpha((0.1 * 255).round()),
                 shape: BoxShape.circle,
               ),
               child: const Icon(

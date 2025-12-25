@@ -90,12 +90,12 @@ class _SignupScreenState extends State<SignupScreen> {
     final theme = Theme.of(context);
     _isJoining = widget.isJoining;
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onBackground),
+          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -113,7 +113,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   'Create Account',
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onBackground,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -159,10 +159,12 @@ class _SignupScreenState extends State<SignupScreen> {
                     fillColor: theme.colorScheme.surface,
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty)
+                    if (value == null || value.isEmpty) {
                       return 'Please enter your email';
-                    if (!value.contains('@'))
+                    }
+                    if (!value.contains('@')) {
                       return 'Please enter a valid email';
+                    }
                     return null;
                   },
                 ),
@@ -191,10 +193,12 @@ class _SignupScreenState extends State<SignupScreen> {
                     fillColor: theme.colorScheme.surface,
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty)
+                    if (value == null || value.isEmpty) {
                       return 'Please enter a password';
-                    if (value.length < 6)
+                    }
+                    if (value.length < 6) {
                       return 'Password must be at least 6 characters';
+                    }
                     return null;
                   },
                 ),
@@ -214,10 +218,12 @@ class _SignupScreenState extends State<SignupScreen> {
                     fillColor: theme.colorScheme.surface,
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty)
+                    if (value == null || value.isEmpty) {
                       return 'Please confirm your password';
-                    if (value != _passwordController.text)
+                    }
+                    if (value != _passwordController.text) {
                       return 'Passwords do not match';
+                    }
                     return null;
                   },
                 ),
@@ -240,10 +246,12 @@ class _SignupScreenState extends State<SignupScreen> {
                       fillColor: theme.colorScheme.surface,
                     ),
                     validator: (value) {
-                      if (value == null || value.isEmpty)
+                      if (value == null || value.isEmpty) {
                         return 'Please enter a budget';
-                      if (double.tryParse(value) == null)
+                      }
+                      if (double.tryParse(value) == null) {
                         return 'Please enter a valid amount';
+                      }
                       return null;
                     },
                   ),
@@ -262,8 +270,9 @@ class _SignupScreenState extends State<SignupScreen> {
                       fillColor: theme.colorScheme.surface,
                     ),
                     validator: (value) {
-                      if (value == null || value.isEmpty)
+                      if (value == null || value.isEmpty) {
                         return 'Please enter invite code';
+                      }
                       return null;
                     },
                   ),
