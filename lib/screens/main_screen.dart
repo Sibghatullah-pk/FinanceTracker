@@ -4,6 +4,8 @@ import 'transactions_screen.dart';
 import 'statistics_screen.dart';
 import 'settings_screen.dart';
 import 'goals_list_screen.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_state.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -19,7 +21,7 @@ class _MainScreenState extends State<MainScreen> {
     const DashboardScreen(),
     const TransactionsScreen(),
     const StatisticsScreen(),
-    const GoalsListScreen(),   // 👈 Added Goals tab
+    const GoalsListScreen(), // 👈 Added Goals tab
     const SettingsScreen(),
   ];
 
@@ -28,7 +30,38 @@ class _MainScreenState extends State<MainScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: _screens[_selectedIndex],
+      body: Stack(
+        children: [
+          _screens[_selectedIndex],
+          Consumer<AppState?>(
+            builder: (context, appState, _) {
+              if (!(appState?.isSyncing ?? false))
+                return const SizedBox.shrink();
+              return Positioned.fill(
+                child: Container(
+                  color: Colors.black45,
+                  child: const Center(
+                    child: Card(
+                      elevation: 8,
+                      child: Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 12),
+                            Text('Syncing household data...'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
@@ -54,7 +87,7 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.flag_outlined),
             activeIcon: Icon(Icons.flag),
-            label: 'Goals',   // 👈 New tab
+            label: 'Goals', // 👈 New tab
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings_outlined),

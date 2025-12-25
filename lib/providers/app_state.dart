@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -29,11 +30,7 @@ class AppState extends ChangeNotifier {
       final householdDoc = query.docs.first;
       final householdId = householdDoc.id;
       final data = householdDoc.data();
-      final List memberIds = data['memberIds'] ?? [];
-      if (memberIds.length >= 2) {
-        debugPrint('Join household error: Household full');
-        return 'full';
-      }
+      // No member limit now
 
       try {
         await _db.collection('households').doc(householdId).update({
@@ -45,8 +42,9 @@ class AppState extends ChangeNotifier {
           'householdId': householdId,
         });
 
-        await _loadHousehold(householdId);
-        await _loadTransactions();
+        _startSync();
+        await _subscribeToHousehold(householdId);
+        await _subscribeToTransactions(householdId);
         await _loadGoals();
         notifyListeners();
         return 'success';
@@ -70,7 +68,8 @@ class AppState extends ChangeNotifier {
           });
 
           _currentUser = _currentUser!.copyWith(householdId: householdId);
-          await _loadHousehold(householdId);
+          _startSync();
+          await _subscribeToHousehold(householdId);
           await _loadTransactions();
           await _loadGoals();
           notifyListeners();
@@ -107,6 +106,9 @@ class AppState extends ChangeNotifier {
         inviteCode: inviteCode,
       );
       _householdMembers[_currentUser!.uid] = _currentUser!;
+      // Ensure we subscribe to realtime updates for this household and its transactions
+      await _subscribeToHousehold(householdId);
+      await _subscribeToTransactions(householdId);
       notifyListeners();
       return true;
     } catch (e) {
@@ -122,11 +124,23 @@ class AppState extends ChangeNotifier {
   // App State
   UserModel? _currentUser;
   Household? _household;
+  // Realtime listeners
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+      _householdListener;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+      _transactionsListener;
+
+  // Sync state for showing a short-lived loading modal while subscriptions initialize
+  bool _isSyncing = false;
+  bool _householdSynced = false;
+  bool _transactionsSynced = false;
 
   // Caches
   final List<app.Transaction> _transactions = [];
   final Map<String, List<Comment>> _comments =
       {}; // transactionId -> List<Comment>
+  final Map<String, StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>
+      _commentsListeners = {};
   final Map<String, UserModel> _householdMembers = {};
   final List<SavingsGoal> _goals = [];
 
@@ -135,6 +149,8 @@ class AppState extends ChangeNotifier {
   Household? get household => _household;
   List<app.Transaction> get transactions => _transactions;
   List<SavingsGoal> get goals => _goals;
+
+  bool get isSyncing => _isSyncing;
 
   bool get isLoggedIn => _currentUser != null;
   bool get hasHousehold => _household != null;
@@ -162,6 +178,21 @@ class AppState extends ChangeNotifier {
         .join();
   }
 
+  void _startSync() {
+    _isSyncing = true;
+    _householdSynced = false;
+    _transactionsSynced = false;
+    notifyListeners();
+  }
+
+  void _updateSyncState() {
+    if (!_isSyncing) return;
+    if (_householdSynced && _transactionsSynced) {
+      _isSyncing = false;
+      notifyListeners();
+    }
+  }
+
   // ================= AUTH =================
   Future<String?> login(String email, String password) async {
     try {
@@ -176,9 +207,25 @@ class AppState extends ChangeNotifier {
 
       _currentUser = UserModel.fromJson(user.uid, userDoc.data()!);
 
+      // Recovery: If user is admin in any household but missing householdId, fix it
+      if (_currentUser!.householdId == null) {
+        final adminQuery = await _db
+            .collection('households')
+            .where('roles.${_currentUser!.uid}', isEqualTo: 'admin')
+            .get();
+        if (adminQuery.docs.isNotEmpty) {
+          final householdId = adminQuery.docs.first.id;
+          await _db.collection('users').doc(_currentUser!.uid).update({
+            'householdId': householdId,
+          });
+          _currentUser = _currentUser!.copyWith(householdId: householdId);
+        }
+      }
       if (_currentUser!.householdId != null) {
-        await _loadHousehold(_currentUser!.householdId!);
-        await _loadTransactions();
+        _startSync();
+        _startSync();
+        await _subscribeToHousehold(_currentUser!.householdId!);
+        await _subscribeToTransactions(_currentUser!.householdId!);
         await _loadGoals();
       }
 
@@ -208,9 +255,7 @@ class AppState extends ChangeNotifier {
             .get();
         if (q.docs.isEmpty) return 'Invalid invite code';
         final householdDoc = q.docs.first;
-        final data = householdDoc.data();
-        final List memberIds = data['memberIds'] ?? [];
-        if (memberIds.length >= 2) return 'Household is full';
+        // No member limit now
         targetHouseholdId = householdDoc.id;
       }
 
@@ -247,7 +292,8 @@ class AppState extends ChangeNotifier {
             householdId: targetHouseholdId,
           );
 
-          await _loadHousehold(targetHouseholdId);
+          _startSync();
+          await _subscribeToHousehold(targetHouseholdId);
         } on FirebaseException catch (e) {
           if (e.code == 'permission-denied') {
             // Create a join request document so the household admin can accept.
@@ -275,7 +321,8 @@ class AppState extends ChangeNotifier {
             );
 
             // Load household data (the user may not yet be listed in members)
-            await _loadHousehold(targetHouseholdId);
+            _startSync();
+            await _subscribeToHousehold(targetHouseholdId);
 
             // Indicate pending join to the caller
             return 'PENDING_JOIN';
@@ -309,6 +356,9 @@ class AppState extends ChangeNotifier {
         );
 
         _householdMembers[user.uid] = _currentUser!;
+        // When creating via signup, subscribe to realtime updates as well
+        await _subscribeToHousehold(householdId);
+        await _subscribeToTransactions(householdId);
       }
 
       notifyListeners();
@@ -328,6 +378,11 @@ class AppState extends ChangeNotifier {
     _comments.clear();
     _householdMembers.clear();
     _goals.clear();
+    await _householdListener?.cancel();
+    _householdListener = null;
+    await _transactionsListener?.cancel();
+    _transactionsListener = null;
+    await _cancelAllCommentListeners();
     notifyListeners();
   }
 
@@ -382,24 +437,25 @@ class AppState extends ChangeNotifier {
 
       final householdDoc = query.docs.first;
       final householdId = householdDoc.id;
-      final data = householdDoc.data();
-      final List memberIds = data['memberIds'] ?? [];
-      if (memberIds.length >= 2) {
-        debugPrint('Join household error: Household full');
-        return false;
-      }
-
-      await _db.collection('households').doc(householdId).update({
-        'memberIds': FieldValue.arrayUnion([_currentUser!.uid]),
-        'roles.${_currentUser!.uid}': 'contributor',
+      final userId = _currentUser!.uid;
+      // Use a Firestore batch to update both user and household atomically
+      final batch = _db.batch();
+      final householdRef = _db.collection('households').doc(householdId);
+      final userRef = _db.collection('users').doc(userId);
+      batch.update(householdRef, {
+        'memberIds': FieldValue.arrayUnion([userId]),
+        'roles.$userId': 'contributor',
       });
-
-      await _db.collection('users').doc(_currentUser!.uid).update({
+      batch.update(userRef, {
         'householdId': householdId,
       });
+      await batch.commit();
+      debugPrint(
+          '[JoinHousehold] batch commit successful for household $householdId user $userId');
 
-      await _loadHousehold(householdId);
-      await _loadTransactions();
+      _startSync();
+      await _subscribeToHousehold(householdId);
+      await _subscribeToTransactions(householdId);
       await _loadGoals();
       notifyListeners();
       return true;
@@ -413,6 +469,9 @@ class AppState extends ChangeNotifier {
     if (_currentUser == null || _household == null) return;
     final userId = _currentUser!.uid;
     final householdId = _household!.id;
+    final isAdmin = _household!.roles[userId] == 'admin';
+    final memberIds = List<String>.from(_household!.memberIds);
+    final roles = Map<String, String>.from(_household!.roles);
     // Remove user from household's memberIds and roles
     _db.collection('households').doc(householdId).update({
       'memberIds': FieldValue.arrayRemove([userId]),
@@ -422,10 +481,31 @@ class AppState extends ChangeNotifier {
     _db.collection('users').doc(userId).update({
       'householdId': FieldValue.delete(),
     });
-    // If admin leaves, optionally delete household or transfer admin (not handled here)
+    // If admin leaves, handle admin transfer or household deletion
+    if (isAdmin) {
+      // Remove admin from local roles and memberIds
+      memberIds.remove(userId);
+      roles.remove(userId);
+      if (memberIds.length == 1) {
+        // Only one member left, delete household
+        final lastUserId = memberIds.first;
+        _db.collection('households').doc(householdId).delete();
+        _db.collection('users').doc(lastUserId).update({
+          'householdId': FieldValue.delete(),
+        });
+      } else if (memberIds.length > 1) {
+        // Assign new admin (first contributor)
+        final newAdminId = memberIds.first;
+        _db.collection('households').doc(householdId).update({
+          'roles.$newAdminId': 'admin',
+        });
+      }
+    }
     _household = null;
     _transactions.clear();
     _householdMembers.clear();
+    // cancel any active comments listeners for transactions
+    _cancelAllCommentListeners();
     notifyListeners();
   }
 
@@ -446,7 +526,12 @@ class AppState extends ChangeNotifier {
         'status': 'accepted',
         'handledAt': Timestamp.now(),
       });
-      await _loadHousehold(householdId);
+      debugPrint(
+          '[AcceptJoin] request $requestId accepted for user $userId into $householdId');
+      _startSync();
+      await _subscribeToHousehold(householdId);
+      await _subscribeToTransactions(householdId);
+      await _loadGoals();
       notifyListeners();
       return true;
     } on FirebaseException catch (e) {
@@ -500,14 +585,75 @@ class AppState extends ChangeNotifier {
       createdByName: _currentUser!.name,
     );
 
-    final docRef = await _db
-        .collection('households')
-        .doc(_household!.id)
-        .collection('transactions')
-        .add(enriched.toMap());
+    try {
+      final docRef = await _db
+          .collection('households')
+          .doc(_household!.id)
+          .collection('transactions')
+          .add(enriched.toMap());
 
-    _transactions.add(enriched.copyWith(id: docRef.id));
-    notifyListeners();
+      debugPrint(
+          '[AddTransaction] created ${docRef.id} in household ${_household!.id} by ${_currentUser!.uid}');
+      _transactions.add(enriched.copyWith(id: docRef.id));
+      notifyListeners();
+    } on FirebaseException catch (e) {
+      debugPrint('[AddTransaction] failed: ${e.code} ${e.message}');
+      if (e.code == 'permission-denied') {
+        // Fallback: create a transaction request so admins can approve it
+        await _db
+            .collection('households')
+            .doc(_household!.id)
+            .collection('transaction_requests')
+            .add({
+          ...enriched.toMap(),
+          'status': 'pending',
+          'createdAt': Timestamp.now(),
+        });
+
+        // Add a local pending transaction so contributor sees it immediately
+        final pendingId = 'pending-${DateTime.now().millisecondsSinceEpoch}';
+        final pending = enriched.copyWith(
+          id: pendingId,
+          note: (enriched.note ?? '') + ' (Pending approval)',
+        );
+        _transactions.add(pending);
+        notifyListeners();
+        return;
+      }
+      rethrow;
+    }
+  }
+
+  /// Manually refresh household-related data (transactions, goals, members)
+  Future<void> refresh() async {
+    if (_household == null) return;
+    try {
+      // Re-fetch household doc to refresh members/roles
+      final doc = await _db.collection('households').doc(_household!.id).get();
+      if (doc.exists) {
+        final data = doc.data()!;
+        _household = Household(
+          id: _household!.id,
+          memberIds: List<String>.from(data['memberIds'] ?? []),
+          roles: Map<String, String>.from(data['roles'] ?? {}),
+          monthlyLimit: (data['monthlyLimit'] as num?)?.toDouble() ?? 0,
+          inviteCode: data['inviteCode'],
+        );
+        _householdMembers.clear();
+        for (final uid in _household!.memberIds) {
+          final userDoc = await _db.collection('users').doc(uid).get();
+          if (userDoc.exists) {
+            _householdMembers[uid] = UserModel.fromJson(uid, userDoc.data()!);
+          }
+        }
+      }
+
+      await _loadTransactions();
+      await _loadGoals();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Refresh failed: $e');
+    }
   }
 
   Future<void> deleteTransaction(String transactionId) async {
@@ -545,7 +691,6 @@ class AppState extends ChangeNotifier {
 
   Future<void> addComment(String transactionId, String text) async {
     if (_household == null || _currentUser == null) return;
-
     final commentCol = _db
         .collection('households')
         .doc(_household!.id)
@@ -564,6 +709,7 @@ class AppState extends ChangeNotifier {
 
     await docRef.set(commentData);
 
+    // local update will arrive via realtime listener, but add optimistic UI now
     final newComment = Comment(
       id: docRef.id,
       userId: _currentUser!.uid,
@@ -576,6 +722,41 @@ class AppState extends ChangeNotifier {
     list.add(newComment);
     _comments[transactionId] = list;
     notifyListeners();
+  }
+
+  /// Subscribe to real-time comments for a given transaction.
+  Future<void> subscribeToComments(String transactionId) async {
+    if (_household == null) return;
+    // cancel existing
+    await _commentsListeners[transactionId]?.cancel();
+    final sub = _db
+        .collection('households')
+        .doc(_household!.id)
+        .collection('transactions')
+        .doc(transactionId)
+        .collection('comments')
+        .orderBy('timestamp', descending: false)
+        .snapshots()
+        .listen((snap) {
+      _comments[transactionId] =
+          snap.docs.map((d) => Comment.fromJson(d.id, d.data())).toList();
+      notifyListeners();
+    }, onError: (e) {
+      debugPrint('[Comments Listener] error for $transactionId: $e');
+    });
+    _commentsListeners[transactionId] = sub;
+  }
+
+  Future<void> unsubscribeFromComments(String transactionId) async {
+    await _commentsListeners[transactionId]?.cancel();
+    _commentsListeners.remove(transactionId);
+  }
+
+  Future<void> _cancelAllCommentListeners() async {
+    for (final sub in _commentsListeners.values) {
+      await sub.cancel();
+    }
+    _commentsListeners.clear();
   }
 
   // ================= SAVINGS GOALS =================
@@ -920,5 +1101,66 @@ class AppState extends ChangeNotifier {
       'password',
       50000,
     );
+  }
+
+  Future<void> _subscribeToHousehold(String householdId) async {
+    // Cancel previous listener if any
+    await _householdListener?.cancel();
+    _householdListener = _db
+        .collection('households')
+        .doc(householdId)
+        .snapshots()
+        .listen((doc) async {
+      debugPrint('[Household Listener] Household updated for $householdId');
+      if (!_householdSynced) {
+        _householdSynced = true;
+        _updateSyncState();
+      }
+      if (!doc.exists) {
+        _household = null;
+        _householdMembers.clear();
+        notifyListeners();
+        return;
+      }
+      final data = doc.data()!;
+      _household = Household(
+        id: householdId,
+        memberIds: List<String>.from(data['memberIds']),
+        roles: Map<String, String>.from(data['roles']),
+        monthlyLimit: (data['monthlyLimit'] as num).toDouble(),
+        inviteCode: data['inviteCode'],
+      );
+      // Load member details
+      _householdMembers.clear();
+      for (final uid in _household!.memberIds) {
+        final userDoc = await _db.collection('users').doc(uid).get();
+        if (userDoc.exists) {
+          _householdMembers[uid] = UserModel.fromJson(uid, userDoc.data()!);
+        }
+      }
+      debugPrint(
+          '[Household Listener] Members: ' + _householdMembers.keys.join(", "));
+      notifyListeners();
+    });
+  }
+
+  Future<void> _subscribeToTransactions(String householdId) async {
+    await _transactionsListener?.cancel();
+    _transactionsListener = _db
+        .collection('households')
+        .doc(householdId)
+        .collection('transactions')
+        .orderBy('date', descending: true)
+        .snapshots()
+        .listen((snap) {
+      if (!_transactionsSynced) {
+        _transactionsSynced = true;
+        _updateSyncState();
+      }
+      _transactions
+        ..clear()
+        ..addAll(snap.docs.map((d) => app.Transaction.fromMap(d.id, d.data())));
+      notifyListeners();
+    });
   }
 }

@@ -37,9 +37,10 @@ class _JoinHouseholdScreenState extends State<JoinHouseholdScreen> {
     setState(() => _isLoading = false);
 
     if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     if (result == 'success') {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('Successfully joined household!'),
           backgroundColor: AppTheme.successColor,
@@ -47,28 +48,28 @@ class _JoinHouseholdScreenState extends State<JoinHouseholdScreen> {
       );
     } else if (result == 'pending') {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('Join request sent — waiting for admin approval'),
           backgroundColor: Colors.orange,
         ),
       );
     } else if (result == 'full') {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('Household is full. Only 2 members allowed.'),
           backgroundColor: AppTheme.expenseColor,
         ),
       );
     } else if (result == 'invalid') {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('Invalid invite code.'),
           backgroundColor: AppTheme.expenseColor,
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('Failed to join household. Try again.'),
           backgroundColor: AppTheme.expenseColor,

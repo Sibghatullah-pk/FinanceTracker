@@ -330,34 +330,37 @@ class SettingsScreen extends StatelessWidget {
   void _showMembersDialog(BuildContext context, AppState appState) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Household Members'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: appState.members.map((member) {
-            final role = appState.household?.roles[member.uid] ?? 'contributor';
-            return ListTile(
-              leading: CircleAvatar(
-                backgroundColor:
-                    Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                child: Text(
-                  member.name.substring(0, 1).toUpperCase(),
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
+      builder: (context) => Consumer<AppState>(
+        builder: (context, appState, _) => AlertDialog(
+          title: const Text('Household Members'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: appState.members.map((member) {
+              final role =
+                  appState.household?.roles[member.uid] ?? 'contributor';
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  child: Text(
+                    member.name.substring(0, 1).toUpperCase(),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
                 ),
-              ),
-              title: Text(member.name),
-              subtitle: Text(role.toUpperCase()),
-            );
-          }).toList(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+                title: Text(member.name),
+                subtitle: Text(role.toUpperCase()),
+              );
+            }).toList(),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
       ),
     );
   }

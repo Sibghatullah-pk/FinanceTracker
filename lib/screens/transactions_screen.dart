@@ -27,6 +27,19 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              final appState = context.read<AppState>();
+              await appState.refresh();
+              if (!mounted) return;
+              messenger.showSnackBar(
+                const SnackBar(content: Text('Refreshed')),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {},
           ),
@@ -181,13 +194,20 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 )),
             if (comments.isNotEmpty) ...[
               const SizedBox(width: 8),
-              Icon(Icons.chat_bubble_outline,
-                  size: 14, color: theme.disabledColor),
-              const SizedBox(width: 4),
-              Text('${comments.length}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.disabledColor,
-                  )),
+              InkWell(
+                onTap: () => _showCommentsSheet(context, transaction, appState),
+                child: Row(
+                  children: [
+                    Icon(Icons.chat_bubble_outline,
+                        size: 14, color: theme.disabledColor),
+                    const SizedBox(width: 4),
+                    Text('${comments.length}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.disabledColor,
+                        )),
+                  ],
+                ),
+              ),
             ],
           ],
         ),
@@ -362,5 +382,97 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         );
       },
     );
+  }
+
+  void _showCommentsSheet(BuildContext context, app.Transaction transaction,
+      AppState appState) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final controller = TextEditingController();
+    await appState.subscribeToComments(transaction.id);
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: SizedBox(
+            height: MediaQuery.of(ctx).size.height * 0.6,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Text('Comments',
+                      style: Theme.of(ctx).textTheme.titleMedium),
+                ),
+                Expanded(
+                  child: Consumer<AppState>(builder: (c, state, _) {
+                    final list = state.getComments(transaction.id);
+                    if (list.isEmpty) {
+                      return const Center(child: Text('No comments yet'));
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      itemCount: list.length,
+                      itemBuilder: (context, index) {
+                        final cm = list[index];
+                        return ListTile(
+                          title: Text(cm.userName,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(cm.text),
+                          trailing: Text(
+                            TimeOfDay.fromDateTime(cm.timestamp)
+                                .format(context),
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.grey),
+                          ),
+                        );
+                      },
+                    );
+                  }),
+                ),
+                SafeArea(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                          child: TextField(
+                            controller: controller,
+                            decoration: const InputDecoration(
+                                hintText: 'Write a comment...'),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.send),
+                        onPressed: () async {
+                          final text = controller.text.trim();
+                          if (text.isEmpty) return;
+                          try {
+                            await appState.addComment(transaction.id, text);
+                            controller.clear();
+                          } catch (e) {
+                            messenger.showSnackBar(const SnackBar(
+                                content: Text('Failed to send comment')));
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    // when sheet is closed, unsubscribe
+    await appState.unsubscribeFromComments(transaction.id);
   }
 }

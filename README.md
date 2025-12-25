@@ -10,10 +10,10 @@ A modern Flutter app for **household finance management**. Perfect for couples o
 ## ✨ Features
 
 ### 👥 Household Management
-- **Link accounts** with your family member using invite codes
+- **Link accounts** with your family or group using invite codes
 - **Role-based permissions** (Admin & Contributor)
 - Admin can edit budgets and delete transactions
-- Share finances with one other member
+- Multiple contributors supported per household (no member limit)
 
 ### 💵 Expense & Income Tracking
 - Add expenses and income with categories
@@ -144,9 +144,10 @@ households/
 
 1. **User A** signs up → Becomes **Admin** of new household
 2. **User A** shares invite code from Settings
-3. **User B** signs up → Goes to "Join Household"
-4. **User B** enters code → Joins as **Contributor**
-5. Both users now share the same budget & transactions!
+3. Other users sign up → Go to "Join Household"
+4. Each user enters the code → Joins as **Contributor**
+5. All members share the same budget & transactions!
+6. If the admin leaves, a new admin is automatically assigned. If only one member remains, the household is deleted.
 
 ## 🎯 Roadmap
 
@@ -155,20 +156,20 @@ households/
 - [x] Mini chat on expenses
 - [x] Budget management
 - [x] Statistics dashboard
-- [ ] Firebase backend integration
+- [x] Firebase backend integration
 - [x] Push notifications for new expenses //not done
 - [x] Monthly reports export
-- [ ] Savings goals feature
-- [ ] Dark mode theme
-- [ ] Ai for predictions
-- [ ] Goals,analysis,Summary (report) add krna
-- [ ] Bills
+- [x] Savings goals feature
+- [x] Dark mode theme
+- [x] Goals,analysis,Summary (report) add krna
+
 
 ## 👨‍💻 Author
 
 **Sibghatullah**
 - GitHub: [@Sibghatullah-pk](https://github.com/Sibghatullah-pk)
-
+ **Noorulain**
+ -Github: [@noorulain924] (https://github.com/NOORULAIN924)
 
 ## 📄 License
 
